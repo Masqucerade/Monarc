@@ -86,6 +86,10 @@ function calcRate(weight, country = 'eu') {
 }
 
 function enrichPackage(p) {
+  if (p.tariff_type && p.tariff_rate) {
+    const total = p.tariff_rate > 0 && p.weight > 0 ? Math.round(p.weight * p.tariff_rate) : 0;
+    return { ...p, type: p.tariff_type, rate: p.tariff_rate, total };
+  }
   const r = calcRate(p.weight, p.country || 'eu');
   const total = r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0;
   return { ...p, ...r, total };
@@ -156,6 +160,7 @@ app.post('/api/packages', authMiddleware, (req, res) => {
   }
 
   const initStatus = status || 'received';
+  const { tariff_type, tariff_rate } = req.body;
   const pkg = {
     id: db.nextId++,
     tracking_number: track,
@@ -164,6 +169,8 @@ app.post('/api/packages', authMiddleware, (req, res) => {
     client_name: client_name || null,
     weight: parseFloat(weight),
     country: country || 'eu',
+    tariff_type: tariff_type || null,
+    tariff_rate: tariff_rate ? parseFloat(tariff_rate) : null,
     status: initStatus,
     description: description || null,
     source: 'admin',

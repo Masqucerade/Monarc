@@ -7,6 +7,20 @@ const COUNTRIES = {
   jp: { flag: '🇯🇵', name: 'Япония'  },
 };
 
+// Tariffs per country (for manual selection)
+const TARIFFS = {
+  eu: null, // auto from weight
+  cn: [
+    { name: 'Авиа',     rate: 1200, label: '1 200 ₽/кг · 20–25 дн.' },
+    { name: 'Экспресс', rate: 3500, label: '3 500 ₽/кг · 1–6 дн.'   },
+    { name: 'Наземный', rate: 800,  label: '800 ₽/кг · 17–25 дн.'   },
+  ],
+  jp: [
+    { name: 'Обычная', rate: 2000, label: '~2 000 ₽/кг · 25–30 дн.' },
+    { name: 'Быстрая', rate: 4000, label: '~4 000 ₽/кг · ~2 нед.'   },
+  ],
+};
+
 const STATUS = {
   pending:    { label: 'Ожидается',      cls: 'badge-pending'    },
   received:   { label: 'На складе',      cls: 'badge-received'   },
@@ -24,6 +38,9 @@ const state = {
   adminFilter: 'all',
   adminSearch: '',
   editingId: null,
+  calcCountry: 'eu',
+  calcTariff: null,
+  adminFormCountry: 'eu',
 };
 
 /* ── Telegram WebApp ─────────────────────────────────────────────── */
@@ -79,10 +96,10 @@ function pkgCard(p, isAdmin) {
   const total = r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0;
   const isPending = p.status === 'pending';
 
-  const countryRow = `<div class="pkg-country"><span class="pkg-country-flag">${c.flag}</span>${c.name}</div>`;
+  const shineEl = p.status === 'ready' ? '<div class="pkg-shine"></div>' : '';
 
   const detailsRow = isPending
-    ? `<div style="font-size:13px;color:var(--text3);margin-bottom:12px">Ожидаем поступления на склад — менеджер обновит статус</div>`
+    ? `<div style="font-size:13px;color:var(--text3);margin-bottom:12px;position:relative;z-index:1">Ожидаем поступления — менеджер обновит статус</div>`
     : `<div class="pkg-details">
         <div class="pkg-detail-item"><div class="pkg-detail-label">Вес</div><div class="pkg-detail-val">${p.weight} кг</div></div>
         <div class="pkg-detail-item"><div class="pkg-detail-label">Тариф</div><div class="pkg-detail-val">${r.type}</div></div>
@@ -101,7 +118,7 @@ function pkgCard(p, isAdmin) {
   const actionsRow = isAdmin
     ? `<div class="pkg-actions">
         <button class="btn-edit-status" data-id="${p.id}">Изменить / Редактировать</button>
-        <button class="btn-delete" data-id="${p.id}" title="Удалить">
+        <button class="btn-delete" data-id="${p.id}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </button>
       </div>`
@@ -109,50 +126,51 @@ function pkgCard(p, isAdmin) {
 
   return `
     <div class="pkg-card status-${p.status}" data-id="${p.id}">
+      ${shineEl}
       <div class="pkg-top">
         <div class="pkg-tracking">
           <div class="pkg-track-label">Трек-номер</div>
           <div class="pkg-track-row">
             <span class="pkg-track-num">${p.tracking_number}</span>
-            <button class="copy-btn" data-copy="${p.tracking_number}" title="Скопировать">
+            <button class="copy-btn" data-copy="${p.tracking_number}">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             </button>
           </div>
         </div>
         ${statusBadge(p.status)}
       </div>
-      ${countryRow}
+      <div class="pkg-country"><span>${c.flag}</span>${c.name}</div>
       ${detailsRow}
       ${clientRow}
-      ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:var(--card-hover);border-radius:6px;">${p.description}</div>` : ''}
-      <div style="font-size:11px;color:var(--text3);">Добавлено: ${fmtDate(p.created_at)}</div>
+      ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;position:relative;z-index:1">${p.description}</div>` : ''}
+      <div style="font-size:11px;color:var(--text3);position:relative;z-index:1">Добавлено: ${fmtDate(p.created_at)}</div>
       ${actionsRow}
     </div>`;
 }
 
-/* ── Packages Tab ────────────────────────────────────────────────── */
+/* ── Skeleton cards ──────────────────────────────────────────────── */
 function skeletonCards(n = 3) {
   return Array.from({ length: n }, () => `
     <div class="pkg-card" style="pointer-events:none">
       <div class="pkg-top">
         <div>
-          <div class="skel" style="width:80px;height:10px;margin-bottom:8px"></div>
-          <div class="skel" style="width:180px;height:18px"></div>
+          <div class="skel" style="width:78px;height:10px;margin-bottom:8px"></div>
+          <div class="skel" style="width:175px;height:18px"></div>
         </div>
         <div class="skel" style="width:90px;height:24px;border-radius:99px"></div>
       </div>
-      <div class="skel" style="width:70px;height:12px;margin:4px 0 14px"></div>
-      <div class="pkg-details">
-        ${Array.from({length:4}, () => `
-          <div>
-            <div class="skel" style="width:40px;height:10px;margin-bottom:6px"></div>
-            <div class="skel" style="width:70px;height:16px"></div>
-          </div>`).join('')}
+      <div class="skel" style="width:68px;height:12px;margin:4px 0 14px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-bottom:10px">
+        ${Array.from({length:4}, () => `<div>
+          <div class="skel" style="width:38px;height:9px;margin-bottom:6px"></div>
+          <div class="skel" style="width:62px;height:16px"></div>
+        </div>`).join('')}
       </div>
-      <div class="skel" style="width:120px;height:10px;margin-top:4px"></div>
+      <div class="skel" style="width:115px;height:10px;margin-top:4px"></div>
     </div>`).join('');
 }
 
+/* ── Packages Tab ────────────────────────────────────────────────── */
 async function loadPackages() {
   const list = document.getElementById('packages-list');
   list.innerHTML = skeletonCards();
@@ -177,7 +195,7 @@ function renderPackages() {
     list.innerHTML = `<div class="empty-state">
       <div class="empty-icon">📭</div>
       <div class="empty-title">${isAdmin ? 'Посылок нет' : 'Ваших посылок нет'}</div>
-      <div class="empty-sub">${isAdmin ? 'Нажмите «+» чтобы добавить' : 'Нажмите «Добавить трек» или напишите менеджеру'}</div>
+      <div class="empty-sub">${isAdmin ? 'Нажмите «+» чтобы добавить' : 'Перейдите в «Поиск» и добавьте трек'}</div>
     </div>`;
     return;
   }
@@ -199,7 +217,7 @@ async function loadStats() {
 async function doTrack(number) {
   const result = document.getElementById('track-result');
   if (!number.trim()) return;
-  result.innerHTML = '<div class="spinner"></div>';
+  result.innerHTML = skeletonCards(1);
   try {
     const p = await apiFetch(`/api/track/${encodeURIComponent(number.trim().toUpperCase())}`);
     const country = p.country || 'eu';
@@ -226,7 +244,7 @@ async function doTrack(number) {
           </div>
           ${statusBadge(p.status)}
         </div>
-        <div class="pkg-country" style="margin-bottom:12px"><span class="pkg-country-flag">${c.flag}</span>${c.name}</div>
+        <div class="pkg-country" style="margin-bottom:12px"><span>${c.flag}</span>${c.name}</div>
         ${p.weight > 0 ? `<div class="pkg-details">
           <div class="pkg-detail-item"><div class="pkg-detail-label">Вес</div><div class="pkg-detail-val">${p.weight} кг</div></div>
           <div class="pkg-detail-item"><div class="pkg-detail-label">Тариф</div><div class="pkg-detail-val">${r.type}</div></div>
@@ -271,12 +289,12 @@ async function loadRates() {
           <div class="country-flag">${c.flag}</div>
           <div>
             <div class="country-name">${c.name}</div>
-            <div class="country-route">🏭 ${c.warehouse} → Москва</div>
+            <div class="country-route">${c.warehouse} → Москва</div>
           </div>
           <div class="country-badge">⏱ ${c.delivery_days}</div>
         </div>
         <table class="rates-table">
-          <thead><tr><th>Тариф</th><th>Срок</th><th>Цена</th></tr></thead>
+          <thead><tr><th>Тариф</th><th>Срок / Условие</th><th>Цена</th></tr></thead>
           <tbody>
             ${c.rates.map(r => `<tr>
               <td>${r.name}</td>
@@ -296,6 +314,83 @@ async function loadRates() {
   }
 }
 
+/* ── Calculator ──────────────────────────────────────────────────── */
+function setupCalc() {
+  const weightInput  = document.getElementById('calc-weight');
+  const resultEl     = document.getElementById('calc-result');
+  const tariffWrap   = document.getElementById('calc-tariff-wrap');
+  const tariffPills  = document.getElementById('calc-tariff-pills');
+
+  function renderTariffPills(country) {
+    const tariffs = TARIFFS[country];
+    if (!tariffs) { tariffWrap.style.display = 'none'; state.calcTariff = null; return; }
+    state.calcTariff = tariffs[0];
+    tariffWrap.style.display = 'flex';
+    tariffPills.innerHTML = tariffs.map((t, i) => `
+      <button class="tariff-pill ${i === 0 ? 'active' : ''}" data-idx="${i}">
+        <span>${t.name}</span>
+        <span class="pill-price">${t.label}</span>
+      </button>`).join('');
+
+    tariffPills.querySelectorAll('.tariff-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tariffPills.querySelectorAll('.tariff-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.calcTariff = TARIFFS[state.calcCountry][parseInt(btn.dataset.idx)];
+        updateCalc();
+      });
+    });
+  }
+
+  function updateCalc() {
+    const w = parseFloat(weightInput.value);
+    resultEl.style.display = 'none';
+    if (!w || w <= 0) return;
+
+    let type, rate;
+    if (state.calcCountry === 'eu') {
+      const r = calcRate(w, 'eu');
+      type = r.type; rate = r.rate;
+    } else {
+      if (!state.calcTariff) return;
+      type = state.calcTariff.name; rate = state.calcTariff.rate;
+    }
+
+    const total = Math.round(w * rate);
+    document.getElementById('calc-type').textContent = type;
+    document.getElementById('calc-kg').textContent = fmt(rate) + ' ₽/кг';
+    document.getElementById('calc-w').textContent = w + ' кг';
+    document.getElementById('calc-total').textContent = fmt(total) + ' ₽';
+    resultEl.style.display = 'block';
+  }
+
+  // Country pills
+  document.querySelectorAll('.country-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.country-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      state.calcCountry = pill.dataset.country;
+      renderTariffPills(state.calcCountry);
+      weightInput.value = '';
+      resultEl.style.display = 'none';
+      haptic('light');
+    });
+  });
+
+  weightInput.addEventListener('input', updateCalc);
+  renderTariffPills('eu');
+}
+
+/* ── Admin form tariff selector ──────────────────────────────────── */
+function updateAdminTariffSelector(country) {
+  const wrap = document.getElementById('pkg-tariff-wrap');
+  const sel  = document.getElementById('pkg-tariff');
+  const tariffs = TARIFFS[country];
+  if (!tariffs) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  sel.innerHTML = tariffs.map(t => `<option value="${t.name}|${t.rate}">${t.name} — ${t.label}</option>`).join('');
+}
+
 /* ── Admin Modal ─────────────────────────────────────────────────── */
 function openAddModal() {
   state.editingId = null;
@@ -304,6 +399,7 @@ function openAddModal() {
   document.getElementById('pkg-id').value = '';
   document.getElementById('pkg-status').value = 'received';
   document.getElementById('pkg-country').value = 'eu';
+  updateAdminTariffSelector('eu');
   showModal('modal-overlay');
 }
 
@@ -319,15 +415,19 @@ function openEditModal(pkg) {
   document.getElementById('pkg-client-name').value = pkg.client_name || '';
   document.getElementById('pkg-status').value = pkg.status;
   document.getElementById('pkg-description').value = pkg.description || '';
+  updateAdminTariffSelector(pkg.country || 'eu');
   showModal('modal-overlay');
 }
 
+// Country change in admin form
+document.getElementById('pkg-country')?.addEventListener('change', e => {
+  updateAdminTariffSelector(e.target.value);
+});
+
 function showModal(id) {
-  const overlay = document.getElementById(id);
-  overlay.style.display = 'flex';
+  document.getElementById(id).style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
-
 function hideModal(id) {
   document.getElementById(id).style.display = 'none';
   document.body.style.overflow = '';
@@ -337,16 +437,28 @@ async function handleFormSubmit(e) {
   e.preventDefault();
   const btn = document.getElementById('form-submit');
   btn.disabled = true; btn.textContent = 'Сохраняем…';
+
+  const country = document.getElementById('pkg-country').value;
+  const tariffRaw = document.getElementById('pkg-tariff')?.value;
+  let tariff_type, tariff_rate;
+  if (tariffRaw && tariffRaw.includes('|')) {
+    [tariff_type, tariff_rate] = tariffRaw.split('|');
+    tariff_rate = parseFloat(tariff_rate);
+  }
+
   const body = {
     tracking_number: document.getElementById('pkg-tracking').value.trim(),
     weight: parseFloat(document.getElementById('pkg-weight').value),
-    country: document.getElementById('pkg-country').value,
+    country,
+    tariff_type: tariff_type || undefined,
+    tariff_rate: tariff_rate || undefined,
     client_id: document.getElementById('pkg-client-id').value.trim() || undefined,
     client_username: document.getElementById('pkg-client-username').value.trim() || undefined,
     client_name: document.getElementById('pkg-client-name').value.trim() || undefined,
     status: document.getElementById('pkg-status').value,
     description: document.getElementById('pkg-description').value.trim() || undefined,
   };
+
   try {
     if (state.editingId) {
       await apiFetch(`/api/packages/${state.editingId}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -379,6 +491,7 @@ async function handleClientFormSubmit(e) {
     hideModal('client-modal-overlay');
     document.getElementById('client-pkg-form').reset();
     loadPackages();
+    switchTab('packages');
   } catch (err) { toast(err.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = 'Добавить'; }
 }
@@ -414,36 +527,11 @@ function toast(msg, type = '') {
 
 /* ── Clipboard ───────────────────────────────────────────────────── */
 function copyText(text) {
-  if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => toast('Скопировано!')); }
-  else {
-    const el = document.createElement('textarea');
-    el.value = text; el.style.cssText = 'position:fixed;opacity:0';
-    document.body.appendChild(el); el.select(); document.execCommand('copy');
-    document.body.removeChild(el); toast('Скопировано!');
-  }
-}
-
-/* ── Calculator ──────────────────────────────────────────────────── */
-function setupCalc() {
-  const weightInput = document.getElementById('calc-weight');
-  const countrySelect = document.getElementById('calc-country');
-  const result = document.getElementById('calc-result');
-
-  function update() {
-    const w = parseFloat(weightInput.value);
-    const country = countrySelect.value;
-    if (!w || w <= 0) { result.style.display = 'none'; return; }
-    const r = calcRate(w, country);
-    const total = Math.round(w * r.rate);
-    document.getElementById('calc-type').textContent = r.type;
-    document.getElementById('calc-kg').textContent = fmt(r.rate) + ' ₽/кг';
-    document.getElementById('calc-w').textContent = w + ' кг';
-    document.getElementById('calc-total').textContent = fmt(total) + ' ₽';
-    result.style.display = 'block';
-  }
-
-  weightInput.addEventListener('input', update);
-  countrySelect.addEventListener('change', update);
+  if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => toast('Скопировано!')); return; }
+  const el = document.createElement('textarea');
+  el.value = text; el.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(el); el.select(); document.execCommand('copy');
+  document.body.removeChild(el); toast('Скопировано!');
 }
 
 /* ── Events ──────────────────────────────────────────────────────── */
@@ -467,7 +555,7 @@ document.addEventListener('click', e => {
   const delBtn = e.target.closest('.btn-delete');
   if (delBtn) { deletePackage(parseInt(delBtn.dataset.id)); return; }
 
-  if (e.target.closest('#modal-close') || e.target.id === 'modal-overlay') { hideModal('modal-overlay'); return; }
+  if (e.target.closest('#modal-close') || e.target.id === 'modal-overlay')               { hideModal('modal-overlay'); return; }
   if (e.target.closest('#client-modal-close') || e.target.id === 'client-modal-overlay') { hideModal('client-modal-overlay'); return; }
 
   const chip = e.target.closest('.stat-chip');
@@ -494,12 +582,12 @@ async function init() {
   if (!tg?.initData) {
     await new Promise(r => setTimeout(r, 1200));
     document.getElementById('loading').innerHTML = `
-      <div style="text-align:center;padding:32px 24px;max-width:320px">
+      <div style="text-align:center;padding:32px 24px;max-width:320px;position:relative;z-index:1">
         <div style="font-size:52px;margin-bottom:20px">✈️</div>
-        <div style="font-family:'Montserrat',sans-serif;font-size:28px;font-weight:900;letter-spacing:5px;
+        <div style="font-family:'Montserrat',sans-serif;font-size:26px;font-weight:900;letter-spacing:5px;
           background:linear-gradient(135deg,#fff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
-          margin-bottom:8px">MONARC</div>
-        <div style="color:#94a3b8;font-size:14px;margin-bottom:28px">Cargo Delivery</div>
+          margin-bottom:6px">MONARC</div>
+        <div style="color:#94a3b8;font-size:13px;margin-bottom:28px">Cargo Delivery</div>
         <div style="color:#f1f5f9;font-size:15px;font-weight:600;margin-bottom:8px">Откройте в Telegram</div>
         <div style="color:#64748b;font-size:13px;line-height:1.6;margin-bottom:28px">
           Это Telegram Mini App — работает только внутри Telegram
@@ -537,10 +625,10 @@ async function init() {
     document.getElementById('app').style.display = 'flex';
   } catch (e) {
     document.getElementById('loading').innerHTML = `
-      <div style="text-align:center;padding:24px">
-        <div style="font-size:48px;margin-bottom:16px">⚠️</div>
-        <div style="color:var(--text2);font-size:14px">${e.message}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:8px">Перезагрузите приложение</div>
+      <div style="text-align:center;padding:24px;position:relative;z-index:1">
+        <div style="font-size:44px;margin-bottom:16px">⚠️</div>
+        <div style="color:#94a3b8;font-size:14px">${e.message}</div>
+        <div style="font-size:12px;color:#475569;margin-top:8px">Перезагрузите приложение</div>
       </div>`;
   }
 }
