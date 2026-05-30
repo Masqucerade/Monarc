@@ -1,6 +1,20 @@
 /* ── Config ──────────────────────────────────────────────────────── */
-const API_BASE = '';
 const ADMIN_ID = '885394476';
+
+const COUNTRIES = {
+  eu: { flag: '🇪🇺', name: 'Европа'  },
+  cn: { flag: '🇨🇳', name: 'Китай'   },
+  jp: { flag: '🇯🇵', name: 'Япония'  },
+};
+
+const STATUS = {
+  pending:    { label: 'Ожидается',      cls: 'badge-pending'    },
+  received:   { label: 'На складе',      cls: 'badge-received'   },
+  processing: { label: 'Обрабатывается', cls: 'badge-processing' },
+  shipped:    { label: 'В пути',         cls: 'badge-shipped'    },
+  ready:      { label: 'Готово к выдаче',cls: 'badge-ready'      },
+  delivered:  { label: 'Выдано',         cls: 'badge-delivered'  },
+};
 
 /* ── State ───────────────────────────────────────────────────────── */
 const state = {
@@ -14,15 +28,10 @@ const state = {
 
 /* ── Telegram WebApp ─────────────────────────────────────────────── */
 const tg = window.Telegram?.WebApp;
-if (tg) {
-  tg.expand();
-  tg.ready();
-  tg.enableClosingConfirmation();
-}
+if (tg) { tg.expand(); tg.ready(); tg.enableClosingConfirmation(); }
 
-function getTgInitData() {
-  return tg?.initData || '';
-}
+function getTgInitData() { return tg?.initData || ''; }
+function haptic(style = 'light') { tg?.HapticFeedback?.impactOccurred(style); }
 
 /* ── API ─────────────────────────────────────────────────────────── */
 async function apiFetch(path, options = {}) {
@@ -32,56 +41,66 @@ async function apiFetch(path, options = {}) {
     'x-telegram-init-data': initData || 'dev',
     ...(options.headers || {}),
   };
-  // Dev: allow simulating admin
-  if (!initData) {
-    const devId = state.user?.id || ADMIN_ID;
-    headers['x-dev-user-id'] = devId;
-  }
-  const res = await fetch(API_BASE + path, { ...options, headers });
+  if (!initData) headers['x-dev-user-id'] = state.user?.id || ADMIN_ID;
+  const res = await fetch(path, { ...options, headers });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Ошибка сервера');
   return data;
 }
 
-/* ── Rate Helpers (frontend mirror) ─────────────────────────────── */
-function calcRate(weight) {
-  if (weight <= 5)  return { type: 'Экспресс',     rate: 1900 };
-  if (weight <= 20) return { type: 'Наземный',      rate: 1750 };
-  return                   { type: 'Сборный груз',  rate: 1300 };
+/* ── Helpers ─────────────────────────────────────────────────────── */
+function fmt(n) { return Number(n).toLocaleString('ru-RU'); }
+function fmtDate(str) {
+  return new Date(str).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-function fmt(n) { return n.toLocaleString('ru-RU'); }
 
-const STATUS = {
-  received:   { label: 'На складе',         cls: 'badge-received'   },
-  processing: { label: 'Обрабатывается',     cls: 'badge-processing' },
-  shipped:    { label: 'В пути',             cls: 'badge-shipped'    },
-  ready:      { label: 'Готово к выдаче',    cls: 'badge-ready'      },
-  delivered:  { label: 'Выдано',             cls: 'badge-delivered'  },
-};
+function calcRate(weight, country = 'eu') {
+  if (!weight || weight <= 0) return { type: '—', rate: 0 };
+  if (country === 'cn') {
+    if (weight >= 20) return { type: 'Наземный', rate: 800 };
+    return { type: 'Авиа', rate: 1200 };
+  }
+  if (country === 'jp') return { type: 'Обычная', rate: 2000 };
+  if (weight <= 5)  return { type: 'Экспресс',    rate: 1900 };
+  if (weight <= 20) return { type: 'Наземный',     rate: 1750 };
+  return                   { type: 'Сборный груз', rate: 1300 };
+}
 
 function statusBadge(status) {
   const s = STATUS[status] || { label: status, cls: '' };
   return `<span class="status-badge ${s.cls}">${s.label}</span>`;
 }
 
-function fmtDate(str) {
-  return new Date(str).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-/* ── Package Card HTML ───────────────────────────────────────────── */
+/* ── Package Card ────────────────────────────────────────────────── */
 function pkgCard(p, isAdmin) {
-  const rate = p.rate || calcRate(p.weight).rate;
-  const type = p.type || calcRate(p.weight).type;
-  const total = p.total || Math.round(p.weight * rate);
+  const country = p.country || 'eu';
+  const c = COUNTRIES[country] || COUNTRIES.eu;
+  const r = calcRate(p.weight, country);
+  const total = r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0;
+  const isPending = p.status === 'pending';
+
+  const countryRow = `<div class="pkg-country"><span class="pkg-country-flag">${c.flag}</span>${c.name}</div>`;
+
+  const detailsRow = isPending
+    ? `<div style="font-size:13px;color:var(--text3);margin-bottom:12px">Ожидаем поступления на склад — менеджер обновит статус</div>`
+    : `<div class="pkg-details">
+        <div class="pkg-detail-item"><div class="pkg-detail-label">Вес</div><div class="pkg-detail-val">${p.weight} кг</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">Тариф</div><div class="pkg-detail-val">${r.type}</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">₽/кг</div><div class="pkg-detail-val">${r.rate > 0 ? fmt(r.rate) + ' ₽' : '—'}</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${total > 0 ? '~' + fmt(total) + ' ₽' : '—'}</div></div>
+      </div>`;
+
   const clientRow = isAdmin && (p.client_name || p.client_username || p.client_id)
     ? `<div class="pkg-client">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         ${p.client_name || ''}${p.client_username ? ' @' + p.client_username : ''}${!p.client_name && !p.client_username && p.client_id ? 'ID: ' + p.client_id : ''}
+        ${p.source === 'client' ? '<span class="pkg-source-label">от клиента</span>' : ''}
       </div>`
     : '';
+
   const actionsRow = isAdmin
     ? `<div class="pkg-actions">
-        <button class="btn-edit-status" data-id="${p.id}">Изменить статус</button>
+        <button class="btn-edit-status" data-id="${p.id}">Изменить / Редактировать</button>
         <button class="btn-delete" data-id="${p.id}" title="Удалить">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </button>
@@ -102,24 +121,8 @@ function pkgCard(p, isAdmin) {
         </div>
         ${statusBadge(p.status)}
       </div>
-      <div class="pkg-details">
-        <div class="pkg-detail-item">
-          <div class="pkg-detail-label">Вес</div>
-          <div class="pkg-detail-val">${p.weight} кг</div>
-        </div>
-        <div class="pkg-detail-item">
-          <div class="pkg-detail-label">Тариф</div>
-          <div class="pkg-detail-val">${type}</div>
-        </div>
-        <div class="pkg-detail-item">
-          <div class="pkg-detail-label">₽/кг</div>
-          <div class="pkg-detail-val">${fmt(rate)} ₽</div>
-        </div>
-        <div class="pkg-detail-item">
-          <div class="pkg-detail-label">Стоимость</div>
-          <div class="pkg-detail-val">~${fmt(total)} ₽</div>
-        </div>
-      </div>
+      ${countryRow}
+      ${detailsRow}
       ${clientRow}
       ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:var(--card-hover);border-radius:6px;">${p.description}</div>` : ''}
       <div style="font-size:11px;color:var(--text3);">Добавлено: ${fmtDate(p.created_at)}</div>
@@ -131,17 +134,14 @@ function pkgCard(p, isAdmin) {
 async function loadPackages() {
   const list = document.getElementById('packages-list');
   list.innerHTML = '<div class="spinner"></div>';
-
   try {
     let url = '/api/packages';
     const params = new URLSearchParams();
     if (state.adminFilter && state.adminFilter !== 'all') params.set('status', state.adminFilter);
     if (state.adminSearch) params.set('search', state.adminSearch);
     if (params.toString()) url += '?' + params.toString();
-
     state.packages = await apiFetch(url);
     renderPackages();
-
     if (state.user?.is_admin) loadStats();
   } catch (e) {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">${e.message}</div></div>`;
@@ -151,26 +151,25 @@ async function loadPackages() {
 function renderPackages() {
   const list = document.getElementById('packages-list');
   const isAdmin = state.user?.is_admin;
-
   if (!state.packages.length) {
     list.innerHTML = `<div class="empty-state">
       <div class="empty-icon">📭</div>
       <div class="empty-title">${isAdmin ? 'Посылок нет' : 'Ваших посылок нет'}</div>
-      <div class="empty-sub">${isAdmin ? 'Добавьте первую посылку через кнопку «+»' : 'Свяжитесь с менеджером для привязки посылки'}</div>
+      <div class="empty-sub">${isAdmin ? 'Нажмите «+» чтобы добавить' : 'Нажмите «Добавить трек» или напишите менеджеру'}</div>
     </div>`;
     return;
   }
-
   list.innerHTML = state.packages.map(p => pkgCard(p, isAdmin)).join('');
 }
 
 async function loadStats() {
   try {
-    const stats = await apiFetch('/api/stats');
-    document.getElementById('stat-total').textContent = stats.total;
-    document.getElementById('stat-received').textContent = stats.received;
-    document.getElementById('stat-shipped').textContent = stats.shipped;
-    document.getElementById('stat-ready').textContent = stats.ready;
+    const s = await apiFetch('/api/stats');
+    document.getElementById('stat-total').textContent = s.total;
+    document.getElementById('stat-pending').textContent = s.pending;
+    document.getElementById('stat-received').textContent = s.received;
+    document.getElementById('stat-shipped').textContent = s.shipped;
+    document.getElementById('stat-ready').textContent = s.ready;
   } catch {}
 }
 
@@ -179,11 +178,12 @@ async function doTrack(number) {
   const result = document.getElementById('track-result');
   if (!number.trim()) return;
   result.innerHTML = '<div class="spinner"></div>';
-
   try {
     const p = await apiFetch(`/api/track/${encodeURIComponent(number.trim().toUpperCase())}`);
-    const rate = calcRate(p.weight);
-    const total = Math.round(p.weight * rate.rate);
+    const country = p.country || 'eu';
+    const c = COUNTRIES[country] || COUNTRIES.eu;
+    const r = calcRate(p.weight, country);
+    const total = r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0;
     const owned = p.client_id === state.user?.id;
     const unclaimed = !p.client_id;
     const historyHtml = (p.history || []).map(h =>
@@ -192,7 +192,7 @@ async function doTrack(number) {
 
     result.innerHTML = `
       <div class="track-found-card">
-        <div class="pkg-top" style="margin-bottom:12px">
+        <div class="pkg-top" style="margin-bottom:8px">
           <div class="pkg-tracking">
             <div class="pkg-track-label">Трек-номер</div>
             <div class="pkg-track-row">
@@ -204,24 +204,22 @@ async function doTrack(number) {
           </div>
           ${statusBadge(p.status)}
         </div>
-        <div class="pkg-details">
+        <div class="pkg-country" style="margin-bottom:12px"><span class="pkg-country-flag">${c.flag}</span>${c.name}</div>
+        ${p.weight > 0 ? `<div class="pkg-details">
           <div class="pkg-detail-item"><div class="pkg-detail-label">Вес</div><div class="pkg-detail-val">${p.weight} кг</div></div>
-          <div class="pkg-detail-item"><div class="pkg-detail-label">Тариф</div><div class="pkg-detail-val">${rate.type}</div></div>
-          <div class="pkg-detail-item"><div class="pkg-detail-label">₽/кг</div><div class="pkg-detail-val">${fmt(rate.rate)} ₽</div></div>
+          <div class="pkg-detail-item"><div class="pkg-detail-label">Тариф</div><div class="pkg-detail-val">${r.type}</div></div>
+          <div class="pkg-detail-item"><div class="pkg-detail-label">₽/кг</div><div class="pkg-detail-val">${fmt(r.rate)} ₽</div></div>
           <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">~${fmt(total)} ₽</div></div>
-        </div>
+        </div>` : ''}
         ${historyHtml ? `<div class="track-history"><div class="track-history-title">История</div>${historyHtml}</div>` : ''}
         ${(unclaimed || owned) && !state.user?.is_admin
-          ? `<button class="btn-claim" data-claim-id="${p.id}">${unclaimed ? 'Привязать к моему аккаунту' : '✅ Ваша посылка'}</button>`
+          ? `<button class="btn-claim" data-claim-id="${p.id}">${owned ? '✅ Ваша посылка' : 'Привязать к моему аккаунту'}</button>`
           : ''}
       </div>`;
 
-    // Claim button
-    const claimBtn = result.querySelector('.btn-claim');
-    if (claimBtn && unclaimed) {
-      claimBtn.addEventListener('click', () => claimPackage(p.id));
-    }
-  } catch (e) {
+    const claimBtn = result.querySelector('[data-claim-id]');
+    if (claimBtn && unclaimed) claimBtn.addEventListener('click', () => claimPackage(p.id));
+  } catch {
     result.innerHTML = `<div class="track-not-found">
       <div style="font-size:32px;margin-bottom:8px">🔍</div>
       <div style="font-weight:600;margin-bottom:4px">Посылка не найдена</div>
@@ -237,9 +235,7 @@ async function claimPackage(id) {
     document.getElementById('track-result').innerHTML = '';
     document.getElementById('track-input').value = '';
     loadPackages();
-  } catch (e) {
-    toast(e.message, 'error');
-  }
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 /* ── Rates Tab ───────────────────────────────────────────────────── */
@@ -251,31 +247,29 @@ async function loadRates() {
       <div class="country-card">
         <div class="country-header">
           <div class="country-flag">${c.flag}</div>
-          <div class="country-info">
+          <div>
             <div class="country-name">${c.name}</div>
             <div class="country-route">🏭 ${c.warehouse} → Москва</div>
           </div>
           <div class="country-badge">⏱ ${c.delivery_days}</div>
         </div>
         <table class="rates-table">
-          <thead><tr><th>Тариф</th><th>Условие</th><th>Цена</th></tr></thead>
+          <thead><tr><th>Тариф</th><th>Срок</th><th>Цена</th></tr></thead>
           <tbody>
-            ${c.rates.map(r => `
-              <tr>
-                <td>${r.name}</td>
-                <td><span class="rate-condition">${r.condition}</span></td>
-                <td>${fmt(r.price)} ₽/кг</td>
-              </tr>`).join('')}
+            ${c.rates.map(r => `<tr>
+              <td>${r.name}</td>
+              <td><span class="rate-condition">${r.condition}</span></td>
+              <td>${fmt(r.price)} ₽/кг</td>
+            </tr>`).join('')}
           </tbody>
         </table>
+        ${c.note ? `<div class="rates-note">${c.note}</div>` : ''}
         <div class="stores-section">
           <div class="stores-label">Популярные магазины</div>
-          <div class="stores-list">
-            ${c.popular_stores.map(s => `<span class="store-chip">${s}</span>`).join('')}
-          </div>
+          <div class="stores-list">${c.popular_stores.map(s => `<span class="store-chip">${s}</span>`).join('')}</div>
         </div>
       </div>`).join('');
-  } catch (e) {
+  } catch {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Не удалось загрузить тарифы</div></div>`;
   }
 }
@@ -287,7 +281,8 @@ function openAddModal() {
   document.getElementById('pkg-form').reset();
   document.getElementById('pkg-id').value = '';
   document.getElementById('pkg-status').value = 'received';
-  showModal();
+  document.getElementById('pkg-country').value = 'eu';
+  showModal('modal-overlay');
 }
 
 function openEditModal(pkg) {
@@ -295,43 +290,41 @@ function openEditModal(pkg) {
   document.getElementById('modal-title').textContent = 'Редактировать посылку';
   document.getElementById('pkg-id').value = pkg.id;
   document.getElementById('pkg-tracking').value = pkg.tracking_number;
-  document.getElementById('pkg-weight').value = pkg.weight;
+  document.getElementById('pkg-weight').value = pkg.weight || '';
+  document.getElementById('pkg-country').value = pkg.country || 'eu';
   document.getElementById('pkg-client-id').value = pkg.client_id || '';
   document.getElementById('pkg-client-username').value = pkg.client_username ? '@' + pkg.client_username : '';
   document.getElementById('pkg-client-name').value = pkg.client_name || '';
   document.getElementById('pkg-status').value = pkg.status;
   document.getElementById('pkg-description').value = pkg.description || '';
-  showModal();
+  showModal('modal-overlay');
 }
 
-function showModal() {
-  const overlay = document.getElementById('modal-overlay');
+function showModal(id) {
+  const overlay = document.getElementById(id);
   overlay.style.display = 'flex';
-  requestAnimationFrame(() => overlay.style.opacity = '1');
   document.body.style.overflow = 'hidden';
 }
 
-function hideModal() {
-  document.getElementById('modal-overlay').style.display = 'none';
+function hideModal(id) {
+  document.getElementById(id).style.display = 'none';
   document.body.style.overflow = '';
 }
 
 async function handleFormSubmit(e) {
   e.preventDefault();
   const btn = document.getElementById('form-submit');
-  btn.disabled = true;
-  btn.textContent = 'Сохраняем…';
-
+  btn.disabled = true; btn.textContent = 'Сохраняем…';
   const body = {
     tracking_number: document.getElementById('pkg-tracking').value.trim(),
     weight: parseFloat(document.getElementById('pkg-weight').value),
+    country: document.getElementById('pkg-country').value,
     client_id: document.getElementById('pkg-client-id').value.trim() || undefined,
     client_username: document.getElementById('pkg-client-username').value.trim() || undefined,
     client_name: document.getElementById('pkg-client-name').value.trim() || undefined,
     status: document.getElementById('pkg-status').value,
     description: document.getElementById('pkg-description').value.trim() || undefined,
   };
-
   try {
     if (state.editingId) {
       await apiFetch(`/api/packages/${state.editingId}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -340,14 +333,32 @@ async function handleFormSubmit(e) {
       await apiFetch('/api/packages', { method: 'POST', body: JSON.stringify(body) });
       toast('Посылка добавлена', 'success');
     }
-    hideModal();
+    haptic('medium');
+    hideModal('modal-overlay');
     loadPackages();
-  } catch (err) {
-    toast(err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Сохранить';
-  }
+  } catch (err) { toast(err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Сохранить'; }
+}
+
+/* ── Client Add Modal ────────────────────────────────────────────── */
+async function handleClientFormSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('client-form-submit');
+  btn.disabled = true; btn.textContent = 'Добавляем…';
+  const body = {
+    tracking_number: document.getElementById('client-pkg-tracking').value.trim(),
+    country: document.getElementById('client-pkg-country').value || undefined,
+    description: document.getElementById('client-pkg-description').value.trim() || undefined,
+  };
+  try {
+    await apiFetch('/api/my-packages', { method: 'POST', body: JSON.stringify(body) });
+    toast('Трек-номер добавлен', 'success');
+    haptic('medium');
+    hideModal('client-modal-overlay');
+    document.getElementById('client-pkg-form').reset();
+    loadPackages();
+  } catch (err) { toast(err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Добавить'; }
 }
 
 async function deletePackage(id) {
@@ -356,9 +367,7 @@ async function deletePackage(id) {
     await apiFetch(`/api/packages/${id}`, { method: 'DELETE' });
     toast('Посылка удалена', 'success');
     loadPackages();
-  } catch (e) {
-    toast(e.message, 'error');
-  }
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 /* ── Navigation ──────────────────────────────────────────────────── */
@@ -368,73 +377,64 @@ function switchTab(tab) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
-
   if (tab === 'rates' && !document.getElementById('rates-list').innerHTML) loadRates();
+  haptic('light');
 }
 
 /* ── Toast ───────────────────────────────────────────────────────── */
 let toastTimer;
 function toast(msg, type = '') {
   const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = `toast show ${type}`;
+  el.textContent = msg; el.className = `toast show ${type}`;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.className = 'toast'; }, 2800);
 }
 
 /* ── Clipboard ───────────────────────────────────────────────────── */
 function copyText(text) {
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(() => toast('Скопировано!'));
-  } else {
+  if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => toast('Скопировано!')); }
+  else {
     const el = document.createElement('textarea');
-    el.value = text; el.style.position = 'fixed'; el.style.opacity = '0';
-    document.body.appendChild(el); el.select();
-    document.execCommand('copy');
-    document.body.removeChild(el);
-    toast('Скопировано!');
+    el.value = text; el.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(el); el.select(); document.execCommand('copy');
+    document.body.removeChild(el); toast('Скопировано!');
   }
 }
 
 /* ── Calculator ──────────────────────────────────────────────────── */
 function setupCalc() {
-  const input = document.getElementById('calc-weight');
+  const weightInput = document.getElementById('calc-weight');
+  const countrySelect = document.getElementById('calc-country');
   const result = document.getElementById('calc-result');
-  const typeEl = document.getElementById('calc-type');
-  const kgEl = document.getElementById('calc-kg');
-  const wEl = document.getElementById('calc-w');
-  const totalEl = document.getElementById('calc-total');
 
-  input.addEventListener('input', () => {
-    const w = parseFloat(input.value);
+  function update() {
+    const w = parseFloat(weightInput.value);
+    const country = countrySelect.value;
     if (!w || w <= 0) { result.style.display = 'none'; return; }
-    const r = calcRate(w);
+    const r = calcRate(w, country);
     const total = Math.round(w * r.rate);
-    typeEl.textContent = r.type;
-    kgEl.textContent = fmt(r.rate) + ' ₽/кг';
-    wEl.textContent = w + ' кг';
-    totalEl.textContent = fmt(total) + ' ₽';
+    document.getElementById('calc-type').textContent = r.type;
+    document.getElementById('calc-kg').textContent = fmt(r.rate) + ' ₽/кг';
+    document.getElementById('calc-w').textContent = w + ' кг';
+    document.getElementById('calc-total').textContent = fmt(total) + ' ₽';
     result.style.display = 'block';
-  });
+  }
+
+  weightInput.addEventListener('input', update);
+  countrySelect.addEventListener('change', update);
 }
 
-/* ── Event Delegation ────────────────────────────────────────────── */
+/* ── Events ──────────────────────────────────────────────────────── */
 document.addEventListener('click', e => {
-  // Copy buttons
-  const copyBtn = e.target.closest('[data-copy]');
-  if (copyBtn) { copyText(copyBtn.dataset.copy); return; }
-
-  // Copy my ID
+  if (e.target.closest('[data-copy]')) { copyText(e.target.closest('[data-copy]').dataset.copy); return; }
   if (e.target.closest('#copy-my-id')) { copyText(document.getElementById('my-id-value').textContent); return; }
 
-  // Nav tabs
-  const navItem = e.target.closest('.nav-item');
-  if (navItem) { switchTab(navItem.dataset.tab); return; }
+  const nav = e.target.closest('.nav-item');
+  if (nav) { switchTab(nav.dataset.tab); return; }
 
-  // Add package
-  if (e.target.closest('#btn-add')) { openAddModal(); return; }
+  if (e.target.closest('#btn-add'))        { openAddModal(); return; }
+  if (e.target.closest('#btn-add-client')) { showModal('client-modal-overlay'); return; }
 
-  // Edit status
   const editBtn = e.target.closest('.btn-edit-status');
   if (editBtn) {
     const pkg = state.packages.find(p => p.id === parseInt(editBtn.dataset.id));
@@ -442,78 +442,83 @@ document.addEventListener('click', e => {
     return;
   }
 
-  // Delete
   const delBtn = e.target.closest('.btn-delete');
   if (delBtn) { deletePackage(parseInt(delBtn.dataset.id)); return; }
 
-  // Modal close
-  if (e.target.closest('#modal-close') || e.target.id === 'modal-overlay') { hideModal(); return; }
+  if (e.target.closest('#modal-close') || e.target.id === 'modal-overlay') { hideModal('modal-overlay'); return; }
+  if (e.target.closest('#client-modal-close') || e.target.id === 'client-modal-overlay') { hideModal('client-modal-overlay'); return; }
 
-  // Stat chips
   const chip = e.target.closest('.stat-chip');
   if (chip) {
     document.querySelectorAll('.stat-chip').forEach(c => c.classList.remove('active'));
     chip.classList.add('active');
     state.adminFilter = chip.dataset.filter;
     loadPackages();
-    return;
   }
 });
 
-// Track input
-document.getElementById('track-btn').addEventListener('click', () => {
-  doTrack(document.getElementById('track-input').value);
-});
-document.getElementById('track-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doTrack(document.getElementById('track-input').value);
-});
-
-// Admin search
+document.getElementById('track-btn').addEventListener('click', () => doTrack(document.getElementById('track-input').value));
+document.getElementById('track-input').addEventListener('keydown', e => { if (e.key === 'Enter') doTrack(document.getElementById('track-input').value); });
 document.getElementById('admin-search-input')?.addEventListener('input', e => {
   state.adminSearch = e.target.value;
-  clearTimeout(state._searchTimer);
-  state._searchTimer = setTimeout(loadPackages, 400);
+  clearTimeout(state._st);
+  state._st = setTimeout(loadPackages, 400);
 });
-
-// Package form
 document.getElementById('pkg-form').addEventListener('submit', handleFormSubmit);
+document.getElementById('client-pkg-form').addEventListener('submit', handleClientFormSubmit);
 
 /* ── Init ────────────────────────────────────────────────────────── */
 async function init() {
-  // Simulate loading
+  if (!tg?.initData) {
+    await new Promise(r => setTimeout(r, 1200));
+    document.getElementById('loading').innerHTML = `
+      <div style="text-align:center;padding:32px 24px;max-width:320px">
+        <div style="font-size:52px;margin-bottom:20px">✈️</div>
+        <div style="font-family:'Montserrat',sans-serif;font-size:28px;font-weight:900;letter-spacing:5px;
+          background:linear-gradient(135deg,#fff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+          margin-bottom:8px">MONARC</div>
+        <div style="color:#94a3b8;font-size:14px;margin-bottom:28px">Cargo Delivery</div>
+        <div style="color:#f1f5f9;font-size:15px;font-weight:600;margin-bottom:8px">Откройте в Telegram</div>
+        <div style="color:#64748b;font-size:13px;line-height:1.6;margin-bottom:28px">
+          Это Telegram Mini App — работает только внутри Telegram
+        </div>
+        <a href="https://t.me/euro_monarc"
+          style="display:inline-block;padding:12px 28px;border-radius:12px;
+          background:linear-gradient(135deg,#6d28d9,#8b5cf6);color:#fff;
+          font-weight:700;font-size:14px;text-decoration:none">
+          Написать менеджеру →
+        </a>
+      </div>`;
+    return;
+  }
+
   await new Promise(r => setTimeout(r, 1200));
 
   try {
-    // Get current user
     state.user = await apiFetch('/api/me');
 
-    // Show admin controls
     if (state.user.is_admin) {
       document.getElementById('btn-add').style.display = 'flex';
       document.getElementById('admin-stats').style.display = 'flex';
       document.getElementById('admin-search').style.display = 'flex';
       document.getElementById('packages-title').textContent = 'Все посылки';
+    } else {
+      document.getElementById('btn-add-client').style.display = 'flex';
     }
 
-    // Set my ID
     document.getElementById('my-id-value').textContent = state.user.id;
 
-    // Load packages
     await loadPackages();
-
-    // Setup calculator
     setupCalc();
 
-    // Show app
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
-
   } catch (e) {
     document.getElementById('loading').innerHTML = `
       <div style="text-align:center;padding:24px">
         <div style="font-size:48px;margin-bottom:16px">⚠️</div>
         <div style="color:var(--text2);font-size:14px">${e.message}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:8px">Проверьте соединение и перезагрузите</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:8px">Перезагрузите приложение</div>
       </div>`;
   }
 }

@@ -14,11 +14,8 @@ const DB_FILE = path.join(__dirname, 'data.json');
 // ── JSON Database ─────────────────────────────────────────────────
 
 function readDB() {
-  try {
-    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  } catch {
-    return { packages: [], nextId: 1 };
-  }
+  try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); }
+  catch { return { packages: [], nextId: 1 }; }
 }
 
 function writeDB(data) {
@@ -27,9 +24,7 @@ function writeDB(data) {
   fs.renameSync(tmp, DB_FILE);
 }
 
-function now() {
-  return new Date().toISOString();
-}
+function now() { return new Date().toISOString(); }
 
 // ── Middleware ────────────────────────────────────────────────────
 
@@ -37,7 +32,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Telegram Auth ─────────────────────────────────────────────────
+// ── Auth ──────────────────────────────────────────────────────────
 
 function verifyTelegramData(initData) {
   try {
@@ -45,100 +40,85 @@ function verifyTelegramData(initData) {
     const hash = params.get('hash');
     if (!hash) return false;
     params.delete('hash');
-
     const dataCheckString = Array.from(params.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${k}=${v}`)
-      .join('\n');
-
+      .map(([k, v]) => `${k}=${v}`).join('\n');
     const secretKey = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
-    const computed = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-    return computed === hash;
-  } catch {
-    return false;
-  }
+    return crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex') === hash;
+  } catch { return false; }
 }
 
 function authMiddleware(req, res, next) {
   const initData = req.headers['x-telegram-init-data'];
-
   if (process.env.NODE_ENV !== 'production') {
     if (!initData || initData === 'dev') {
       const devId = req.headers['x-dev-user-id'] || '000000000';
-      req.user = {
-        id: String(devId),
-        username: 'devuser',
-        name: 'Dev User',
-        is_admin: String(devId) === ADMIN_ID,
-      };
+      req.user = { id: String(devId), username: 'devuser', name: 'Dev User', is_admin: String(devId) === ADMIN_ID };
       return next();
     }
   }
-
   if (!initData) return res.status(401).json({ error: 'Unauthorized' });
-
-  if (!verifyTelegramData(initData)) {
-    return res.status(401).json({ error: 'Invalid Telegram auth data' });
-  }
-
+  if (!verifyTelegramData(initData)) return res.status(401).json({ error: 'Invalid Telegram auth data' });
   const params = new URLSearchParams(initData);
   const user = JSON.parse(decodeURIComponent(params.get('user')));
-
   req.user = {
     id: String(user.id),
     username: user.username || '',
     name: [user.first_name, user.last_name].filter(Boolean).join(' '),
     is_admin: String(user.id) === ADMIN_ID,
   };
-
   next();
 }
 
-// ── Helpers ───────────────────────────────────────────────────────
+// ── Rate calculation ──────────────────────────────────────────────
 
-function calcRate(weight) {
-  if (weight <= 5)  return { type: 'Экспресс',     rate: 1900 };
-  if (weight <= 20) return { type: 'Наземный',      rate: 1750 };
-  return                   { type: 'Сборный груз',  rate: 1300 };
+function calcRate(weight, country = 'eu') {
+  if (!weight || weight <= 0) return { type: '—', rate: 0 };
+  if (country === 'cn') {
+    if (weight >= 20) return { type: 'Наземный', rate: 800 };
+    return { type: 'Авиа', rate: 1200 };
+  }
+  if (country === 'jp') return { type: 'Обычная', rate: 2000 };
+  // EU default
+  if (weight <= 5)  return { type: 'Экспресс',    rate: 1900 };
+  if (weight <= 20) return { type: 'Наземный',     rate: 1750 };
+  return                   { type: 'Сборный груз', rate: 1300 };
 }
 
 function enrichPackage(p) {
-  const r = calcRate(p.weight);
-  return { ...p, ...r, total: Math.round(p.weight * r.rate) };
+  const r = calcRate(p.weight, p.country || 'eu');
+  const total = r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0;
+  return { ...p, ...r, total };
 }
 
-async function sendTelegramMessage(chatId, text) {
-  if (!BOT_TOKEN || !chatId) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
-    });
-  } catch (err) {
-    console.error('Telegram send error:', err.message);
-  }
-}
+// ── Notifications ─────────────────────────────────────────────────
 
 const STATUS_LABELS = {
-  received: 'На складе', processing: 'Обрабатывается',
+  pending: 'Ожидается', received: 'На складе', processing: 'Обрабатывается',
   shipped: 'В пути', ready: 'Готово к выдаче', delivered: 'Выдано',
 };
 
 async function notifyClient(clientId, trackingNumber, status) {
-  const emoji = { received: '📦', processing: '⚙️', shipped: '🚚', ready: '✅', delivered: '🎉' }[status] || '📬';
+  if (!BOT_TOKEN || !clientId) return;
+  const emoji = { pending: '⏳', received: '📦', processing: '⚙️', shipped: '🚚', ready: '✅', delivered: '🎉' }[status] || '📬';
   const text =
     `<b>🏭 Monarc Cargo</b>\n\n` +
-    `${emoji} Статус вашей посылки изменён\n\n` +
-    `Трек-номер: <code>${trackingNumber}</code>\n` +
+    `${emoji} Статус посылки изменён\n\n` +
+    `Трек: <code>${trackingNumber}</code>\n` +
     `Статус: <b>${STATUS_LABELS[status] || status}</b>`;
-  await sendTelegramMessage(clientId, text);
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: clientId, text, parse_mode: 'HTML' }),
+    });
+  } catch (err) { console.error('TG notify error:', err.message); }
 }
 
-// ── API Routes ────────────────────────────────────────────────────
+// ── Routes ────────────────────────────────────────────────────────
 
 app.get('/api/me', authMiddleware, (req, res) => res.json(req.user));
 
+// List packages
 app.get('/api/packages', authMiddleware, (req, res) => {
   const { status, search } = req.query;
   let { packages } = readDB();
@@ -161,21 +141,21 @@ app.get('/api/packages', authMiddleware, (req, res) => {
   res.json(packages.map(enrichPackage));
 });
 
+// Admin: create package
 app.post('/api/packages', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
 
-  const { tracking_number, client_id, client_username, client_name, weight, description } = req.body;
-  if (!tracking_number?.trim() || !weight || isNaN(weight) || weight <= 0) {
-    return res.status(400).json({ error: 'Трек-номер и вес обязательны' });
-  }
+  const { tracking_number, client_id, client_username, client_name, weight, country, description, status } = req.body;
+  if (!tracking_number?.trim()) return res.status(400).json({ error: 'Трек-номер обязателен' });
+  if (!weight || isNaN(weight) || weight <= 0) return res.status(400).json({ error: 'Вес обязателен' });
 
   const db = readDB();
   const track = tracking_number.trim().toUpperCase();
-
   if (db.packages.find(p => p.tracking_number === track)) {
     return res.status(400).json({ error: 'Такой трек-номер уже существует' });
   }
 
+  const initStatus = status || 'received';
   const pkg = {
     id: db.nextId++,
     tracking_number: track,
@@ -183,36 +163,82 @@ app.post('/api/packages', authMiddleware, (req, res) => {
     client_username: client_username ? client_username.replace('@', '') : null,
     client_name: client_name || null,
     weight: parseFloat(weight),
-    status: 'received',
+    country: country || 'eu',
+    status: initStatus,
     description: description || null,
-    history: [{ status: 'received', changed_at: now() }],
+    source: 'admin',
+    history: [{ status: initStatus, changed_at: now() }],
     created_at: now(),
     updated_at: now(),
   };
 
   db.packages.push(pkg);
   writeDB(db);
-
-  if (client_id) notifyClient(client_id, pkg.tracking_number, 'received');
-
+  if (client_id) notifyClient(client_id, pkg.tracking_number, initStatus);
   res.json(enrichPackage(pkg));
 });
 
+// Client: self-add tracking number (pending)
+app.post('/api/my-packages', authMiddleware, (req, res) => {
+  const { tracking_number, country, description } = req.body;
+  if (!tracking_number?.trim()) return res.status(400).json({ error: 'Трек-номер обязателен' });
+
+  const db = readDB();
+  const track = tracking_number.trim().toUpperCase();
+
+  // If already exists — claim it
+  const existing = db.packages.find(p => p.tracking_number === track);
+  if (existing) {
+    if (existing.client_id && existing.client_id !== req.user.id) {
+      return res.status(403).json({ error: 'Этот трек-номер уже привязан' });
+    }
+    existing.client_id = req.user.id;
+    existing.client_username = req.user.username;
+    existing.client_name = req.user.name;
+    existing.updated_at = now();
+    const idx = db.packages.findIndex(p => p.tracking_number === track);
+    db.packages[idx] = existing;
+    writeDB(db);
+    return res.json(enrichPackage(existing));
+  }
+
+  const pkg = {
+    id: db.nextId++,
+    tracking_number: track,
+    client_id: req.user.id,
+    client_username: req.user.username,
+    client_name: req.user.name,
+    weight: 0,
+    country: country || null,
+    status: 'pending',
+    description: description || null,
+    source: 'client',
+    history: [{ status: 'pending', changed_at: now() }],
+    created_at: now(),
+    updated_at: now(),
+  };
+
+  db.packages.push(pkg);
+  writeDB(db);
+  res.json(enrichPackage(pkg));
+});
+
+// Admin: update package
 app.put('/api/packages/:id', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
-
   const db = readDB();
   const idx = db.packages.findIndex(p => p.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Посылка не найдена' });
 
   const pkg = db.packages[idx];
   const prev = pkg.status;
-  const { status, weight, description, client_id, client_username, client_name } = req.body;
+  const { status, weight, description, client_id, client_username, client_name, country } = req.body;
 
-  if (status)           pkg.status = status;
-  if (weight)           pkg.weight = parseFloat(weight);
+  if (status)                    pkg.status = status;
+  if (weight)                    pkg.weight = parseFloat(weight);
+  if (country)                   pkg.country = country;
   if (description !== undefined) pkg.description = description || null;
-  if (client_id)        pkg.client_id = client_id;
+  if (client_id)                 pkg.client_id = client_id;
   if (client_username !== undefined) pkg.client_username = client_username ? client_username.replace('@', '') : null;
   if (client_name !== undefined)     pkg.client_name = client_name || null;
   pkg.updated_at = now();
@@ -224,14 +250,11 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
 
   db.packages[idx] = pkg;
   writeDB(db);
-
-  if (status && status !== prev && pkg.client_id) {
-    notifyClient(pkg.client_id, pkg.tracking_number, status);
-  }
-
+  if (status && status !== prev && pkg.client_id) notifyClient(pkg.client_id, pkg.tracking_number, status);
   res.json(enrichPackage(pkg));
 });
 
+// Admin: delete
 app.delete('/api/packages/:id', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
   const db = readDB();
@@ -240,6 +263,7 @@ app.delete('/api/packages/:id', authMiddleware, (req, res) => {
   res.json({ success: true });
 });
 
+// Track by number
 app.get('/api/track/:number', authMiddleware, (req, res) => {
   const { packages } = readDB();
   const pkg = packages.find(p => p.tracking_number === req.params.number.toUpperCase());
@@ -247,48 +271,70 @@ app.get('/api/track/:number', authMiddleware, (req, res) => {
   res.json({ ...enrichPackage(pkg), history: pkg.history || [] });
 });
 
+// Claim package
 app.post('/api/claim/:id', authMiddleware, (req, res) => {
   const db = readDB();
   const idx = db.packages.findIndex(p => p.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Посылка не найдена' });
-
   const pkg = db.packages[idx];
-  if (pkg.client_id && pkg.client_id !== req.user.id) {
-    return res.status(403).json({ error: 'Посылка принадлежит другому пользователю' });
-  }
-
+  if (pkg.client_id && pkg.client_id !== req.user.id) return res.status(403).json({ error: 'Посылка принадлежит другому' });
   pkg.client_id = req.user.id;
   pkg.client_username = req.user.username;
   pkg.client_name = req.user.name;
   pkg.updated_at = now();
   db.packages[idx] = pkg;
   writeDB(db);
-
   res.json(enrichPackage(pkg));
 });
 
+// Stats
 app.get('/api/stats', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
   const { packages } = readDB();
-  const stats = { total: packages.length, received: 0, processing: 0, shipped: 0, ready: 0, delivered: 0 };
+  const stats = { total: packages.length, pending: 0, received: 0, processing: 0, shipped: 0, ready: 0, delivered: 0 };
   packages.forEach(p => { if (stats[p.status] !== undefined) stats[p.status]++; });
   res.json(stats);
 });
 
+// Rates
 app.get('/api/rates', (req, res) => {
-  res.json([{
-    id: 'eu', flag: '🇪🇺', name: 'Европа',
-    warehouse: 'Парма, Италия', destination: 'Москва', delivery_days: '10–15 дней',
-    rates: [
-      { name: 'Экспресс',     price: 1900, condition: 'до 5 кг'   },
-      { name: 'Наземный',      price: 1750, condition: '5–20 кг'  },
-      { name: 'Сборный груз',  price: 1300, condition: 'от 20 кг' },
-    ],
-    popular_stores: ['eBay', 'Grailed', 'Farfetch', 'Jaded London', 'Racer Worldwide', 'Yeezy'],
-  }]);
+  res.json([
+    {
+      id: 'eu', flag: '🇪🇺', name: 'Европа',
+      warehouse: 'Парма, Италия', delivery_days: '10–15 дней',
+      note: null,
+      rates: [
+        { name: 'Экспресс',    price: 1900, condition: 'до 5 кг'   },
+        { name: 'Наземный',    price: 1750, condition: '5–20 кг'   },
+        { name: 'Сборный груз', price: 1300, condition: 'от 20 кг' },
+      ],
+      popular_stores: ['eBay', 'Grailed', 'Farfetch', 'Jaded London', 'Racer Worldwide', 'Yeezy'],
+    },
+    {
+      id: 'cn', flag: '🇨🇳', name: 'Китай',
+      warehouse: 'Пекин, Китай', delivery_days: '17–25 дней',
+      note: null,
+      rates: [
+        { name: 'Авиа',     price: 1200, condition: '20–25 дней' },
+        { name: 'Экспресс', price: 3500, condition: '1–6 дней'   },
+        { name: 'Наземный', price: 800,  condition: 'от 20 кг · 17–25 дней' },
+      ],
+      popular_stores: ['Poizon', 'GooFish (Xianyu)', 'Taobao', '1688'],
+    },
+    {
+      id: 'jp', flag: '🇯🇵', name: 'Япония',
+      warehouse: 'Катано, Япония', delivery_days: '2–4 нед.',
+      note: '* Стоимость приблизительная, зависит от количества и типа товара',
+      rates: [
+        { name: 'Обычная',  price: 2000, condition: '~25–30 дней' },
+        { name: 'Быстрая',  price: 4000, condition: '~2 недели'   },
+      ],
+      popular_stores: ['Mercari', 'Rakuten'],
+    },
+  ]);
 });
 
-// ── Bot Setup ─────────────────────────────────────────────────────
+// ── Bot setup ─────────────────────────────────────────────────────
 
 async function setupBot() {
   if (!BOT_TOKEN) return;
@@ -302,8 +348,6 @@ async function setupBot() {
     console.log('Bot menu button set to:', WEBAPP_URL);
   } catch {}
 }
-
-// ── Start ─────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
   console.log(`\n🏭 Monarc Cargo  →  http://localhost:${PORT}`);
