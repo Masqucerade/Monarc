@@ -131,9 +131,31 @@ function pkgCard(p, isAdmin) {
 }
 
 /* ── Packages Tab ────────────────────────────────────────────────── */
+function skeletonCards(n = 3) {
+  return Array.from({ length: n }, () => `
+    <div class="pkg-card" style="pointer-events:none">
+      <div class="pkg-top">
+        <div>
+          <div class="skel" style="width:80px;height:10px;margin-bottom:8px"></div>
+          <div class="skel" style="width:180px;height:18px"></div>
+        </div>
+        <div class="skel" style="width:90px;height:24px;border-radius:99px"></div>
+      </div>
+      <div class="skel" style="width:70px;height:12px;margin:4px 0 14px"></div>
+      <div class="pkg-details">
+        ${Array.from({length:4}, () => `
+          <div>
+            <div class="skel" style="width:40px;height:10px;margin-bottom:6px"></div>
+            <div class="skel" style="width:70px;height:16px"></div>
+          </div>`).join('')}
+      </div>
+      <div class="skel" style="width:120px;height:10px;margin-top:4px"></div>
+    </div>`).join('');
+}
+
 async function loadPackages() {
   const list = document.getElementById('packages-list');
-  list.innerHTML = '<div class="spinner"></div>';
+  list.innerHTML = skeletonCards();
   try {
     let url = '/api/packages';
     const params = new URLSearchParams();
