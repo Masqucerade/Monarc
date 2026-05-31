@@ -668,6 +668,25 @@ body::after {
 }
 .i-contact-sm-label { font-size: 13px; font-weight: 600; }
 
+/* Export card */
+.export-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; margin-bottom: 0;
+}
+.export-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.export-icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+.export-info { flex: 1; min-width: 0; }
+.export-title { font-size: 13px; font-weight: 600; }
+.export-sub { font-size: 11px; color: var(--text3); margin-top: 2px; line-height: 1.4; }
+.export-divider { height: 1px; background: var(--border); margin: 0 16px; }
+.btn-export-action {
+  flex-shrink: 0; padding: 7px 12px; border-radius: var(--radius-xs);
+  background: rgba(139,92,246,0.1); border: 1px solid var(--border-acc);
+  color: var(--purple2); font-size: 12px; font-weight: 600; white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-export-action:active { background: rgba(139,92,246,0.2); }
+
 /* Backup */
 .backup-card {
   background: var(--card); border: 1px solid var(--border);

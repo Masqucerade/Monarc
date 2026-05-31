@@ -11,6 +11,10 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_ID = process.env.ADMIN_ID || '885394476';
 const DB_FILE = path.join(__dirname, 'data.json');
 
+// Deterministic export token derived from secrets (no extra env var needed)
+const EXPORT_TOKEN = process.env.EXPORT_TOKEN ||
+  crypto.createHash('sha256').update((BOT_TOKEN || '') + ADMIN_ID).digest('hex').slice(0, 24);
+
 // ── JSON Database ─────────────────────────────────────────────────
 
 function readDB() {
@@ -398,6 +402,176 @@ app.get('/api/rates', (req, res) => {
       popular_stores: ['Mercari', 'Rakuten'],
     },
   ]);
+});
+
+// ── Export token info ─────────────────────────────────────────────
+
+app.get('/api/admin/export-info', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const base = process.env.WEBAPP_URL || `http://localhost:${PORT}`;
+  res.json({
+    token: EXPORT_TOKEN,
+    csv_url: `${base}/export.csv?token=${EXPORT_TOKEN}`,
+    live_url: `${base}/admin/live?token=${EXPORT_TOKEN}`,
+    sheets_formula: `=IMPORTDATA("${base}/export.csv?token=${EXPORT_TOKEN}")`,
+  });
+});
+
+// ── CSV Export (token-protected, no auth header needed → works in Google Sheets) ──
+
+app.get('/export.csv', (req, res) => {
+  if (req.query.token !== EXPORT_TOKEN) return res.status(403).send('Forbidden');
+
+  const { packages } = readDB();
+  const COUNTRY = { eu: 'Европа', cn: 'Китай', jp: 'Япония' };
+  const STATUS_RU = {
+    pending: 'Ожидается', received: 'На складе', processing: 'Обрабатывается',
+    shipped: 'В пути', ready: 'Готово к выдаче', delivered: 'Выдано',
+  };
+
+  const header = ['ID', 'Трек-номер', 'Статус', 'Страна', 'Вес (кг)', 'Тариф', 'Стоимость (₽)',
+    'Клиент', 'Username', 'TG ID', 'Заметка', 'Дата добавления'].join(',');
+
+  const rows = [...packages]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .map(p => {
+      const r = enrichPackage(p);
+      const esc = v => `"${String(v || '').replace(/"/g, '""')}"`;
+      return [
+        p.id,
+        esc(p.tracking_number),
+        esc(STATUS_RU[p.status] || p.status),
+        esc(COUNTRY[p.country] || p.country || ''),
+        p.weight || '',
+        esc(r.type || ''),
+        r.total || '',
+        esc(p.client_name || ''),
+        esc(p.client_username ? '@' + p.client_username : ''),
+        p.client_id || '',
+        esc(p.description || ''),
+        esc(new Date(p.created_at).toLocaleDateString('ru-RU')),
+      ].join(',');
+    });
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="monarc-${new Date().toISOString().split('T')[0]}.csv"`);
+  res.send('﻿' + [header, ...rows].join('\r\n'));
+});
+
+// ── Live admin table ──────────────────────────────────────────────
+
+app.get('/admin/data', (req, res) => {
+  if (req.query.token !== EXPORT_TOKEN) return res.status(403).json({ error: 'Forbidden' });
+  const { packages } = readDB();
+  res.json([...packages].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map(enrichPackage));
+});
+
+app.get('/admin/live', (req, res) => {
+  if (req.query.token !== EXPORT_TOKEN) {
+    return res.status(403).send('<h1>403 Forbidden</h1>');
+  }
+  const token = req.query.token;
+  const base = process.env.WEBAPP_URL || `http://localhost:${PORT}`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Monarc — Live таблица</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,sans-serif;background:#08080f;color:#f1f5f9;min-height:100vh}
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@900&display=swap');
+  header{background:rgba(8,8,15,.9);border-bottom:1px solid rgba(255,255,255,.08);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;backdrop-filter:blur(16px)}
+  .logo{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:900;letter-spacing:3px;background:linear-gradient(135deg,#fff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .refresh-info{font-size:12px;color:#64748b}
+  .countdown{color:#a78bfa;font-weight:600}
+  .stats{display:flex;gap:12px;padding:16px 20px;flex-wrap:wrap}
+  .stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 16px;font-size:13px}
+  .stat b{font-size:20px;font-weight:700;display:block;background:linear-gradient(135deg,#fff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .wrap{overflow-x:auto;padding:0 20px 40px}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:900px}
+  thead th{text-align:left;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08);color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+  tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s}
+  tbody tr:hover{background:rgba(255,255,255,.03)}
+  td{padding:10px 12px;vertical-align:middle}
+  .track{font-family:monospace;font-size:13px;font-weight:600;letter-spacing:.5px}
+  .badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600}
+  .b-pending   {background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25)}
+  .b-received  {background:rgba(59,130,246,.12); color:#60a5fa;border:1px solid rgba(59,130,246,.2)}
+  .b-processing{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25)}
+  .b-shipped   {background:rgba(139,92,246,.12); color:#a78bfa;border:1px solid rgba(139,92,246,.3)}
+  .b-ready     {background:rgba(34,197,94,.12);  color:#4ade80;border:1px solid rgba(34,197,94,.3)}
+  .b-delivered {background:rgba(100,116,139,.12);color:#94a3b8;border:1px solid rgba(100,116,139,.2)}
+  .muted{color:#475569}
+  .csv-link{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);color:#a78bfa;text-decoration:none;font-size:12px;font-weight:600}
+  .csv-link:hover{background:rgba(139,92,246,.2)}
+  .loading{text-align:center;padding:60px;color:#475569}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">MONARC</div>
+  <div class="refresh-info">Обновление через <span class="countdown" id="cd">60</span> сек &nbsp;·&nbsp;
+    <a href="${base}/export.csv?token=${token}" class="csv-link">⬇ Скачать CSV</a>
+  </div>
+</header>
+<div class="stats" id="stats"></div>
+<div class="wrap"><table id="tbl">
+  <thead><tr>
+    <th>Трек-номер</th><th>Статус</th><th>Страна</th><th>Вес</th><th>Тариф</th>
+    <th>Стоимость</th><th>Клиент</th><th>Заметка</th><th>Добавлено</th>
+  </tr></thead>
+  <tbody id="tbody"><tr><td colspan="9" class="loading">Загрузка…</td></tr></tbody>
+</table></div>
+<script>
+const TOKEN='${token}';
+const BASE='${base}';
+const STATUS_RU={pending:'Ожидается',received:'На складе',processing:'Обрабатывается',shipped:'В пути',ready:'Готово к выдаче',delivered:'Выдано'};
+const COUNTRY={eu:'🇪🇺 Европа',cn:'🇨🇳 Китай',jp:'🇯🇵 Япония'};
+function fmt(n){return Number(n).toLocaleString('ru-RU')}
+function fmtDate(s){return new Date(s).toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'numeric'})}
+
+async function load(){
+  try{
+    const r=await fetch(BASE+'/admin/data?token='+TOKEN);
+    const pkgs=await r.json();
+    const stats={total:pkgs.length,pending:0,received:0,shipped:0,ready:0,delivered:0};
+    pkgs.forEach(p=>{ if(stats[p.status]!==undefined) stats[p.status]++ });
+    document.getElementById('stats').innerHTML=
+      \`<div class="stat"><b>\${stats.total}</b>Всего</div>
+       <div class="stat"><b>\${stats.pending}</b>Ожидают</div>
+       <div class="stat"><b>\${stats.received}</b>На складе</div>
+       <div class="stat"><b>\${stats.shipped}</b>В пути</div>
+       <div class="stat"><b style="-webkit-text-fill-color:#4ade80">\${stats.ready}</b>Готово</div>
+       <div class="stat"><b>\${stats.delivered}</b>Выдано</div>\`;
+    document.getElementById('tbody').innerHTML=pkgs.map(p=>\`<tr>
+      <td class="track">\${p.tracking_number}</td>
+      <td><span class="badge b-\${p.status}">\${STATUS_RU[p.status]||p.status}</span></td>
+      <td>\${COUNTRY[p.country]||p.country||'—'}</td>
+      <td>\${p.weight?p.weight+' кг':'—'}</td>
+      <td class="muted">\${p.type||'—'}</td>
+      <td>\${p.total?'~'+fmt(p.total)+' ₽':'—'}</td>
+      <td>\${p.client_name||''}${' '}\${p.client_username?'@'+p.client_username:''}\${!p.client_name&&!p.client_username&&p.client_id?'ID: '+p.client_id:''}</td>
+      <td class="muted">\${p.description||''}</td>
+      <td class="muted">\${fmtDate(p.created_at)}</td>
+    </tr>\`).join('');
+  }catch(e){ document.getElementById('tbody').innerHTML='<tr><td colspan="9" class="loading">Ошибка загрузки</td></tr>' }
+}
+
+let sec=60;
+function tick(){
+  sec--;
+  document.getElementById('cd').textContent=sec;
+  if(sec<=0){ sec=60; load(); }
+}
+
+load();
+setInterval(tick,1000);
+</script>
+</body></html>`);
 });
 
 // ── Bot setup ─────────────────────────────────────────────────────

@@ -318,14 +318,47 @@
         </div>
       </div>
 
-      <!-- Admin backup section -->
+      <!-- Admin tools section -->
       <div id="admin-backup" style="display:none;margin-bottom:32px">
-        <div class="i-section-label">Резервное копирование</div>
+
+        <!-- Export & Live table -->
+        <div class="i-section-label">Экспорт и мониторинг</div>
+        <div class="export-card">
+          <div class="export-row">
+            <div class="export-icon">📊</div>
+            <div class="export-info">
+              <div class="export-title">Live таблица</div>
+              <div class="export-sub">Открывается в браузере, обновляется каждые 60 сек</div>
+            </div>
+            <button id="btn-live-table" class="btn-export-action">Открыть →</button>
+          </div>
+          <div class="export-divider"></div>
+          <div class="export-row">
+            <div class="export-icon">📋</div>
+            <div class="export-info">
+              <div class="export-title">Google Sheets (авто-обновление)</div>
+              <div class="export-sub">Скопируй формулу и вставь в ячейку A1 Google Sheets</div>
+            </div>
+            <button id="btn-copy-formula" class="btn-export-action">Копировать</button>
+          </div>
+          <div class="export-divider"></div>
+          <div class="export-row">
+            <div class="export-icon">⬇️</div>
+            <div class="export-info">
+              <div class="export-title">Скачать CSV</div>
+              <div class="export-sub">Актуальный снимок базы на текущий момент</div>
+            </div>
+            <button id="btn-csv" class="btn-export-action">Скачать</button>
+          </div>
+        </div>
+
+        <!-- Backup -->
+        <div class="i-section-label" style="margin-top:16px">Резервное копирование</div>
         <div class="backup-card">
           <div class="backup-info">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <div>
-              <div class="backup-title">База данных посылок</div>
+              <div class="backup-title">Резервная копия JSON</div>
               <div class="backup-sub">Скачайте копию или восстановите из файла</div>
             </div>
           </div>

@@ -660,6 +660,22 @@ async function init() {
       document.getElementById('admin-search').style.display = 'flex';
       document.getElementById('admin-backup').style.display = 'block';
       document.getElementById('packages-title').textContent = 'Все посылки';
+
+      // Export info: live table, Google Sheets formula, CSV
+      apiFetch('/api/admin/export-info').then(info => {
+        state.exportInfo = info;
+        document.getElementById('btn-live-table').addEventListener('click', () => {
+          window.open(info.live_url, '_blank');
+        });
+        document.getElementById('btn-copy-formula').addEventListener('click', () => {
+          copyText(info.sheets_formula);
+          toast('Формула скопирована — вставьте в ячейку A1 Google Sheets', 'success');
+        });
+        document.getElementById('btn-csv').addEventListener('click', () => {
+          window.open(info.csv_url, '_blank');
+        });
+      }).catch(() => {});
+
       // Backup handlers
       document.getElementById('btn-backup').addEventListener('click', downloadBackup);
       document.getElementById('restore-file').addEventListener('change', e => {
