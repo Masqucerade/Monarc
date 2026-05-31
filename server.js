@@ -605,9 +605,40 @@ async function setupBot() {
   } catch {}
 }
 
+// ── Hourly auto-backup → Telegram ────────────────────────────────
+
+async function sendAutoBackup() {
+  if (!BOT_TOKEN) return;
+  try {
+    const data = readDB();
+    const date = new Date();
+    const label = date.toLocaleString('ru-RU', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow',
+    });
+    const tag = date.toISOString().slice(0, 16).replace('T', '_').replace(':', '-');
+    const filename = `monarc-backup-${tag}.json`;
+    const json = JSON.stringify(data, null, 2);
+
+    const form = new FormData();
+    form.append('chat_id', ADMIN_ID);
+    form.append('caption', `🗄 <b>Авто-бэкап Monarc</b>\n🕐 ${label} (МСК)\n📊 Посылок: <b>${data.packages.length}</b>`);
+    form.append('parse_mode', 'HTML');
+    form.append('document', new Blob([json], { type: 'application/json' }), filename);
+
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, {
+      method: 'POST', body: form,
+    });
+    console.log(`[backup] Sent: ${filename} (${data.packages.length} packages)`);
+  } catch (err) {
+    console.error('[backup] Error:', err.message);
+  }
+}
+
 app.listen(PORT, () => {
   console.log(`\n🏭 Monarc Cargo  →  http://localhost:${PORT}`);
   console.log(`   Admin ID : ${ADMIN_ID}`);
   console.log(`   Mode     : ${process.env.NODE_ENV}\n`);
   setupBot();
+  setInterval(sendAutoBackup, 60 * 60 * 1000); // every hour
 });
