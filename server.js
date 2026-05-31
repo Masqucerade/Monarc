@@ -348,6 +348,13 @@ app.get('/api/admin/backup', authMiddleware, (req, res) => {
   res.send(JSON.stringify(data, null, 2));
 });
 
+// Admin: send backup to Telegram manually
+app.post('/api/admin/backup-tg', authMiddleware, async (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  await sendAutoBackup();
+  res.json({ success: true });
+});
+
 // Admin: restore — upload JSON backup
 app.post('/api/admin/restore', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });

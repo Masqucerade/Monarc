@@ -694,6 +694,19 @@ async function init() {
 
       // Backup handlers
       document.getElementById('btn-backup').addEventListener('click', downloadBackup);
+      document.getElementById('btn-backup-tg').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-backup-tg');
+        btn.disabled = true; btn.textContent = 'Отправляем…';
+        try {
+          await apiFetch('/api/admin/backup-tg', { method: 'POST' });
+          toast('Бэкап отправлен в Telegram', 'success');
+          haptic('medium');
+        } catch (e) { toast('Ошибка отправки', 'error'); }
+        finally {
+          btn.disabled = false;
+          btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 6.628 5.374 12 12 12s12-5.372 12-12c0-6.627-5.374-12-12-12zm5.562 8.248l-1.97 9.269c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 14.463l-2.95-.924c-.642-.204-.657-.642.136-.953l11.57-4.461c.537-.194 1.006.131.636.123z"/></svg> В Telegram`;
+        }
+      });
       document.getElementById('restore-file').addEventListener('change', e => {
         restoreBackup(e.target.files[0]);
         e.target.value = '';
