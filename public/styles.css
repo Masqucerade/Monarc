@@ -572,9 +572,16 @@ body::after {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
   background: linear-gradient(180deg, var(--purple-d), var(--purple));
 }
-.i-wh-flag { font-size: 22px; flex-shrink: 0; }
+.i-wh-flag { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+.i-wh-body { flex: 1; }
 .i-wh-city { font-size: 14px; font-weight: 600; }
-.i-wh-time { font-size: 12px; color: var(--purple2); margin-top: 1px; }
+.i-wh-time { font-size: 12px; color: var(--purple2); margin-top: 1px; margin-bottom: 8px; }
+.i-wh-rates { display: flex; flex-direction: column; gap: 4px; }
+.i-wh-rate {
+  font-size: 11px; color: var(--text3); padding: 3px 8px;
+  background: rgba(255,255,255,0.03); border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
 
 /* Timeline */
 .i-timeline { display: flex; flex-direction: column; margin-bottom: 20px; }

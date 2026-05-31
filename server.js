@@ -106,7 +106,7 @@ async function notifyClient(clientId, trackingNumber, status) {
   if (!BOT_TOKEN || !clientId) return;
   const emoji = { pending: '⏳', received: '📦', processing: '⚙️', shipped: '🚚', ready: '✅', delivered: '🎉' }[status] || '📬';
   const text =
-    `<b>🏭 Monarc Cargo</b>\n\n` +
+    `<b>Monarc Cargo</b>\n\n` +
     `${emoji} Статус посылки изменён\n\n` +
     `Трек: <code>${trackingNumber}</code>\n` +
     `Статус: <b>${STATUS_LABELS[status] || status}</b>`;
@@ -116,6 +116,16 @@ async function notifyClient(clientId, trackingNumber, status) {
       body: JSON.stringify({ chat_id: clientId, text, parse_mode: 'HTML' }),
     });
   } catch (err) { console.error('TG notify error:', err.message); }
+}
+
+async function notifyAdmin(text) {
+  if (!BOT_TOKEN) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: ADMIN_ID, text, parse_mode: 'HTML' }),
+    });
+  } catch (err) { console.error('TG admin notify error:', err.message); }
 }
 
 // ── Routes ────────────────────────────────────────────────────────
@@ -227,6 +237,19 @@ app.post('/api/my-packages', authMiddleware, (req, res) => {
 
   db.packages.push(pkg);
   writeDB(db);
+
+  // Notify admin about new client-added tracking
+  const countryLabel = { eu: '🇪🇺 Европа', cn: '🇨🇳 Китай', jp: '🇯🇵 Япония' }[country] || '—';
+  notifyAdmin(
+    `<b>Monarc Cargo</b>\n\n` +
+    `📥 Новый трек от клиента\n\n` +
+    `Трек: <code>${track}</code>\n` +
+    `Клиент: ${req.user.name || ''}${req.user.username ? ' @' + req.user.username : ''}\n` +
+    `ID: <code>${req.user.id}</code>\n` +
+    `Страна: ${countryLabel}` +
+    (description ? `\nЗаметка: ${description}` : '')
+  );
+
   res.json(enrichPackage(pkg));
 });
 
