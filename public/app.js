@@ -318,6 +318,20 @@ async function loadRates() {
   }
 }
 
+/* ── Warehouse tabs ──────────────────────────────────────────────── */
+function setupWarehouseTabs() {
+  document.querySelectorAll('.i-wh-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.i-wh-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.i-wh-panel').forEach(p => { p.style.display = 'none'; });
+      const panel = document.getElementById('wh-' + tab.dataset.wh);
+      if (panel) { panel.style.display = 'block'; }
+      haptic('light');
+    });
+  });
+}
+
 /* ── Calculator ──────────────────────────────────────────────────── */
 function setupCalc() {
   const weightInput  = document.getElementById('calc-weight');
@@ -690,6 +704,7 @@ async function init() {
 
     await loadPackages();
     setupCalc();
+    setupWarehouseTabs();
 
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
