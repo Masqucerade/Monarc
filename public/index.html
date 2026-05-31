@@ -161,69 +161,56 @@
         <div class="i-hero-tag">Международная карго-доставка</div>
       </div>
 
-      <!-- Stats row -->
-      <div class="i-stats">
-        <div class="i-stat">
-          <div class="i-stat-dot i-dot-purple"></div>
-          <div class="i-stat-num i-num-purple">100+</div>
-          <div class="i-stat-label">Стран</div>
-        </div>
-        <div class="i-stat-sep"></div>
-        <div class="i-stat">
-          <div class="i-stat-dot i-dot-blue"></div>
-          <div class="i-stat-num i-num-blue">от 1</div>
-          <div class="i-stat-label">Дня доставки</div>
-        </div>
-        <div class="i-stat-sep"></div>
-        <div class="i-stat">
-          <div class="i-stat-dot i-dot-gold"></div>
-          <div class="i-stat-num i-num-gold">5%</div>
-          <div class="i-stat-label">Страховка</div>
-        </div>
-      </div>
-
-      <!-- Warehouses: tab buttons -->
-      <div class="i-section-label">Склады приёма</div>
+      <!-- Warehouses: flag tabs -->
+      <div class="i-section-label">Наши склады</div>
       <div class="i-wh-tabs">
-        <button class="i-wh-tab active" data-wh="it">
-          <span class="i-wh-tab-flag">🇮🇹</span>
-          <span class="i-wh-tab-name">Италия</span>
-        </button>
-        <button class="i-wh-tab" data-wh="cn">
-          <span class="i-wh-tab-flag">🇨🇳</span>
-          <span class="i-wh-tab-name">Китай</span>
-        </button>
-        <button class="i-wh-tab" data-wh="jp">
-          <span class="i-wh-tab-flag">🇯🇵</span>
-          <span class="i-wh-tab-name">Япония</span>
-        </button>
+        <button class="i-wh-tab active" data-wh="it"><span class="i-wh-tab-flag">🇮🇹</span><span class="i-wh-tab-name">Италия</span></button>
+        <button class="i-wh-tab" data-wh="gb"><span class="i-wh-tab-flag">🇬🇧</span><span class="i-wh-tab-name">UK</span></button>
+        <button class="i-wh-tab" data-wh="cn"><span class="i-wh-tab-flag">🇨🇳</span><span class="i-wh-tab-name">Китай</span></button>
+        <button class="i-wh-tab" data-wh="jp"><span class="i-wh-tab-flag">🇯🇵</span><span class="i-wh-tab-name">Япония</span></button>
+        <button class="i-wh-tab" data-wh="ru"><span class="i-wh-tab-flag">🇷🇺</span><span class="i-wh-tab-name">Россия</span></button>
       </div>
 
-      <!-- Warehouse content panels -->
       <div class="i-wh-content">
         <div class="i-wh-panel" id="wh-it">
-          <div class="i-wh-route">Парма, Италия → Москва &nbsp;·&nbsp; <span>10–15 дней</span></div>
-          <div class="i-wh-rate-list">
-            <div class="i-wh-rate-row"><span class="i-whr-name">Экспресс</span><span class="i-whr-cond">до 5 кг</span><span class="i-whr-price">1 900 ₽/кг</span></div>
-            <div class="i-wh-rate-row"><span class="i-whr-name">Наземный</span><span class="i-whr-cond">5–20 кг</span><span class="i-whr-price">1 750 ₽/кг</span></div>
-            <div class="i-wh-rate-row"><span class="i-whr-name">Сборный груз</span><span class="i-whr-cond">от 20 кг</span><span class="i-whr-price">1 300 ₽/кг</span></div>
+          <div class="i-wh-location">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Парма, Италия
           </div>
+          <div class="i-wh-desc">Приём товаров из европейских магазинов. Консолидация, проверка и отправка в Москву.</div>
+          <div class="i-wh-time-badge">⏱ 10–15 дней до Москвы</div>
+        </div>
+        <div class="i-wh-panel" id="wh-gb" style="display:none">
+          <div class="i-wh-location">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Великобритания
+          </div>
+          <div class="i-wh-desc">Приём товаров из британских магазинов. Проверка, упаковка и консолидация перед отправкой.</div>
+          <div class="i-wh-time-badge">⏱ Уточняйте сроки у менеджера</div>
         </div>
         <div class="i-wh-panel" id="wh-cn" style="display:none">
-          <div class="i-wh-route">Пекин, Китай → Москва &nbsp;·&nbsp; <span>17–25 дней</span></div>
-          <div class="i-wh-rate-list">
-            <div class="i-wh-rate-row"><span class="i-whr-name">Авиа</span><span class="i-whr-cond">20–25 дн.</span><span class="i-whr-price">1 200 ₽/кг</span></div>
-            <div class="i-wh-rate-row"><span class="i-whr-name">Экспресс</span><span class="i-whr-cond">1–6 дн.</span><span class="i-whr-price">3 500 ₽/кг</span></div>
-            <div class="i-wh-rate-row"><span class="i-whr-name">Наземный</span><span class="i-whr-cond">от 20 кг · 17–25 дн.</span><span class="i-whr-price">800 ₽/кг</span></div>
+          <div class="i-wh-location">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Пекин, Китай
           </div>
+          <div class="i-wh-desc">Выкуп с Poizon, Taobao, 1688, GooFish и других площадок. Авиа, экспресс и наземные тарифы.</div>
+          <div class="i-wh-time-badge">⏱ 17–25 дней до Москвы</div>
         </div>
         <div class="i-wh-panel" id="wh-jp" style="display:none">
-          <div class="i-wh-route">Катано, Япония → Москва &nbsp;·&nbsp; <span>2–4 нед.</span></div>
-          <div class="i-wh-rate-list">
-            <div class="i-wh-rate-row"><span class="i-whr-name">Обычная</span><span class="i-whr-cond">~25–30 дн.</span><span class="i-whr-price">~2 000 ₽/кг</span></div>
-            <div class="i-wh-rate-row"><span class="i-whr-name">Быстрая</span><span class="i-whr-cond">~2 нед.</span><span class="i-whr-price">~4 000 ₽/кг</span></div>
+          <div class="i-wh-location">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Катано, Япония
           </div>
-          <div class="i-wh-note">* Стоимость приблизительная, зависит от типа и количества товара</div>
+          <div class="i-wh-desc">Выкуп с Mercari, Rakuten и других японских площадок. Проверка и отправка в Москву.</div>
+          <div class="i-wh-time-badge">⏱ 2–4 нед. до Москвы</div>
+        </div>
+        <div class="i-wh-panel" id="wh-ru" style="display:none">
+          <div class="i-wh-location">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Москва, Россия
+          </div>
+          <div class="i-wh-desc">Самовывоз из Москвы или отправка по России через Яндекс Доставку и СДЭК.</div>
+          <div class="i-wh-time-badge">📦 Самовывоз и доставка по РФ</div>
         </div>
       </div>
 
@@ -271,29 +258,57 @@
         </div>
       </div>
 
-      <!-- Features grid -->
-      <div class="i-section-label">Дополнительно</div>
-      <div class="i-features">
-        <div class="i-feature">
-          <div class="i-feature-icon">📦</div>
-          <div class="i-feature-title">Упаковка</div>
-          <div class="i-feature-text">Укрепим посылку перед отправкой</div>
+      <!-- Payment methods -->
+      <div class="i-section-label">Способы оплаты</div>
+      <div class="i-pay-card">
+
+        <div class="i-pay-item">
+          <div class="i-pay-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="i-pay-body">
+            <div class="i-pay-title">Криптовалюта</div>
+            <div class="i-pay-chips">
+              <span class="i-pay-chip">USDT TRC-20</span>
+              <span class="i-pay-chip">TON</span>
+            </div>
+          </div>
         </div>
-        <div class="i-feature">
-          <div class="i-feature-icon">🛡</div>
-          <div class="i-feature-title">Страховка</div>
-          <div class="i-feature-text">5% от стоимости товара</div>
+
+        <div class="i-pay-item">
+          <div class="i-pay-icon" style="background:linear-gradient(135deg,#0ea5e9,#0284c7)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          </div>
+          <div class="i-pay-body">
+            <div class="i-pay-title">Перевод на карту</div>
+            <div class="i-pay-chips">
+              <span class="i-pay-chip">Сбер</span>
+              <span class="i-pay-chip">Тинькофф</span>
+              <span class="i-pay-chip">Альфа</span>
+            </div>
+          </div>
         </div>
-        <div class="i-feature">
-          <div class="i-feature-icon">🎁</div>
-          <div class="i-feature-title">Скидки</div>
-          <div class="i-feature-text">При задержках по нашей вине</div>
+
+        <div class="i-pay-item">
+          <div class="i-pay-icon" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div class="i-pay-body">
+            <div class="i-pay-title">Счёт на ИП</div>
+            <div class="i-pay-sub">+6% к стоимости</div>
+          </div>
         </div>
-        <div class="i-feature">
-          <div class="i-feature-icon">🚚</div>
-          <div class="i-feature-title">Регионы</div>
-          <div class="i-feature-text">Яндекс, СДЭК по всей РФ</div>
+
+        <div class="i-pay-item i-pay-last">
+          <div class="i-pay-icon" style="background:linear-gradient(135deg,#22c55e,#16a34a)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+          </div>
+          <div class="i-pay-body">
+            <div class="i-pay-title">Наличными</div>
+            <div class="i-pay-sub">При самовывозе в Москве</div>
+          </div>
         </div>
+
       </div>
 
       <!-- Contacts -->

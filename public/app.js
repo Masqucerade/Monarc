@@ -320,9 +320,11 @@ async function loadRates() {
 
 /* ── Warehouse tabs ──────────────────────────────────────────────── */
 function setupWarehouseTabs() {
-  document.querySelectorAll('.i-wh-tab').forEach(tab => {
+  const tabs = document.querySelectorAll('.i-wh-tab');
+  if (!tabs.length) return;
+  tabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.i-wh-tab').forEach(t => t.classList.remove('active'));
+      tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       document.querySelectorAll('.i-wh-panel').forEach(p => { p.style.display = 'none'; });
       const panel = document.getElementById('wh-' + tab.dataset.wh);
