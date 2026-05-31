@@ -294,6 +294,42 @@ app.post('/api/claim/:id', authMiddleware, (req, res) => {
   res.json(enrichPackage(pkg));
 });
 
+// Client: remove own package (delete if client-added, unlink if admin-added)
+app.delete('/api/my-packages/:id', authMiddleware, (req, res) => {
+  const db = readDB();
+  const idx = db.packages.findIndex(p => p.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ error: 'Посылка не найдена' });
+  const pkg = db.packages[idx];
+  if (pkg.client_id !== req.user.id) return res.status(403).json({ error: 'Нет доступа' });
+  if (pkg.source === 'client') {
+    db.packages.splice(idx, 1);
+  } else {
+    pkg.client_id = null; pkg.client_username = null; pkg.client_name = null;
+    pkg.updated_at = now(); db.packages[idx] = pkg;
+  }
+  writeDB(db);
+  res.json({ success: true });
+});
+
+// Admin: backup — download data.json
+app.get('/api/admin/backup', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const data = readDB();
+  const date = new Date().toISOString().split('T')[0];
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="monarc-backup-${date}.json"`);
+  res.send(JSON.stringify(data, null, 2));
+});
+
+// Admin: restore — upload JSON backup
+app.post('/api/admin/restore', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const { data } = req.body;
+  if (!data || !Array.isArray(data.packages)) return res.status(400).json({ error: 'Неверный формат файла' });
+  writeDB({ packages: data.packages, nextId: data.nextId || (Math.max(0, ...data.packages.map(p => p.id)) + 1) });
+  res.json({ success: true, count: data.packages.length });
+});
+
 // Stats
 app.get('/api/stats', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });

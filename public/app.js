@@ -96,7 +96,7 @@ function pkgCard(p, isAdmin) {
   const total = r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0;
   const isPending = p.status === 'pending';
 
-  const shineEl = p.status === 'ready' ? '<div class="pkg-shine"></div>' : '';
+  const shineEl = '';
 
   const detailsRow = isPending
     ? `<div style="font-size:13px;color:var(--text3);margin-bottom:12px;position:relative;z-index:1">Ожидаем поступления — менеджер обновит статус</div>`
@@ -122,7 +122,11 @@ function pkgCard(p, isAdmin) {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </button>
       </div>`
-    : '';
+    : `<div class="pkg-actions">
+        <button class="btn-client-remove" data-id="${p.id}" style="width:100%;padding:8px;border-radius:var(--radius-xs);background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.18);color:#f87171;font-size:13px;font-weight:500">
+          Убрать из моего списка
+        </button>
+      </div>`;
 
   return `
     <div class="pkg-card status-${p.status}" data-id="${p.id}">
@@ -505,6 +509,46 @@ async function deletePackage(id) {
   } catch (e) { toast(e.message, 'error'); }
 }
 
+async function clientRemovePackage(id) {
+  if (!confirm('Убрать посылку из вашего списка?')) return;
+  try {
+    await apiFetch(`/api/my-packages/${id}`, { method: 'DELETE' });
+    toast('Посылка убрана из списка', 'success');
+    loadPackages();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+/* ── Backup ──────────────────────────────────────────────────────── */
+async function downloadBackup() {
+  try {
+    const initData = getTgInitData();
+    const headers = { 'x-telegram-init-data': initData || 'dev' };
+    if (!initData) headers['x-dev-user-id'] = state.user?.id || ADMIN_ID;
+    const res = await fetch('/api/admin/backup', { headers });
+    if (!res.ok) throw new Error('Ошибка');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().split('T')[0];
+    a.href = url; a.download = `monarc-backup-${date}.json`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast('Резервная копия скачана', 'success');
+  } catch (e) { toast('Ошибка скачивания', 'error'); }
+}
+
+async function restoreBackup(file) {
+  if (!file) return;
+  if (!confirm(`Восстановить базу данных из файла "${file.name}"? Текущие данные будут заменены.`)) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    await apiFetch('/api/admin/restore', { method: 'POST', body: JSON.stringify({ data }) });
+    toast(`Восстановлено ${data.packages?.length || 0} посылок`, 'success');
+    loadPackages();
+  } catch (e) { toast('Ошибка восстановления — проверьте файл', 'error'); }
+}
+
 /* ── Navigation ──────────────────────────────────────────────────── */
 function switchTab(tab) {
   state.currentTab = tab;
@@ -554,6 +598,9 @@ document.addEventListener('click', e => {
 
   const delBtn = e.target.closest('.btn-delete');
   if (delBtn) { deletePackage(parseInt(delBtn.dataset.id)); return; }
+
+  const removeBtn = e.target.closest('.btn-client-remove');
+  if (removeBtn) { clientRemovePackage(parseInt(removeBtn.dataset.id)); return; }
 
   if (e.target.closest('#modal-close') || e.target.id === 'modal-overlay')               { hideModal('modal-overlay'); return; }
   if (e.target.closest('#client-modal-close') || e.target.id === 'client-modal-overlay') { hideModal('client-modal-overlay'); return; }
@@ -611,7 +658,14 @@ async function init() {
       document.getElementById('btn-add').style.display = 'flex';
       document.getElementById('admin-stats').style.display = 'flex';
       document.getElementById('admin-search').style.display = 'flex';
+      document.getElementById('admin-backup').style.display = 'block';
       document.getElementById('packages-title').textContent = 'Все посылки';
+      // Backup handlers
+      document.getElementById('btn-backup').addEventListener('click', downloadBackup);
+      document.getElementById('restore-file').addEventListener('change', e => {
+        restoreBackup(e.target.files[0]);
+        e.target.value = '';
+      });
     } else {
       document.getElementById('btn-add-client').style.display = 'flex';
     }
