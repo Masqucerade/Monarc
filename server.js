@@ -449,7 +449,7 @@ app.get('/export.csv', (req, res) => {
         esc(p.client_username ? '@' + p.client_username : ''),
         p.client_id || '',
         esc(p.description || ''),
-        esc(new Date(p.created_at).toLocaleDateString('ru-RU')),
+        `="${new Date(p.created_at).toLocaleDateString('ru-RU')}"`,
       ].join(',');
     });
 
@@ -508,13 +508,22 @@ app.get('/admin/live', (req, res) => {
   .muted{color:#475569}
   .csv-link{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);color:#a78bfa;text-decoration:none;font-size:12px;font-weight:600}
   .csv-link:hover{background:rgba(139,92,246,.2)}
+  .btn-refresh{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#4ade80;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s}
+  .btn-refresh:hover{background:rgba(34,197,94,.18)}
+  .btn-refresh.spinning svg{animation:spin .6s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
   .loading{text-align:center;padding:60px;color:#475569}
 </style>
 </head>
 <body>
 <header>
   <div class="logo">MONARC</div>
-  <div class="refresh-info">Обновление через <span class="countdown" id="cd">60</span> сек &nbsp;·&nbsp;
+  <div class="refresh-info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <button class="btn-refresh" id="btn-refresh">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Обновить
+    </button>
+    <span style="color:#334155">Авто через <span class="countdown" id="cd">60</span> сек</span>
     <a href="${base}/export.csv?token=${token}" class="csv-link">⬇ Скачать CSV</a>
   </div>
 </header>
@@ -567,6 +576,13 @@ function tick(){
   document.getElementById('cd').textContent=sec;
   if(sec<=0){ sec=60; load(); }
 }
+
+document.getElementById('btn-refresh').addEventListener('click',()=>{
+  const btn=document.getElementById('btn-refresh');
+  btn.classList.add('spinning'); btn.disabled=true;
+  sec=60; document.getElementById('cd').textContent=sec;
+  load().finally(()=>{ btn.classList.remove('spinning'); btn.disabled=false; });
+});
 
 load();
 setInterval(tick,1000);
