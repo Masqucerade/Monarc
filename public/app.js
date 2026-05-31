@@ -555,7 +555,12 @@ async function downloadBackup() {
 
 async function restoreBackup(file) {
   if (!file) return;
-  if (!confirm(`Восстановить базу данных из файла "${file.name}"? Текущие данные будут заменены.`)) return;
+  const msg = `Восстановить базу из "${file.name}"? Текущие данные будут заменены.`;
+  const confirmed = await new Promise(resolve => {
+    if (tg?.showConfirm) tg.showConfirm(msg, ok => resolve(ok));
+    else resolve(confirm(msg));
+  });
+  if (!confirmed) return;
   try {
     const text = await file.text();
     const data = JSON.parse(text);
@@ -704,7 +709,7 @@ async function init() {
         } catch (e) { toast('Ошибка отправки', 'error'); }
         finally {
           btn.disabled = false;
-          btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 6.628 5.374 12 12 12s12-5.372 12-12c0-6.627-5.374-12-12-12zm5.562 8.248l-1.97 9.269c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 14.463l-2.95-.924c-.642-.204-.657-.642.136-.953l11.57-4.461c.537-.194 1.006.131.636.123z"/></svg> В Telegram`;
+          btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 6.628 5.374 12 12 12s12-5.372 12-12c0-6.627-5.374-12-12-12zm5.562 8.248l-1.97 9.269c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.17 14.463l-2.95-.924c-.642-.204-.657-.642.136-.953l11.57-4.461c.537-.194 1.006.131.636.123z"/></svg> Telegram`;
         }
       });
       document.getElementById('restore-file').addEventListener('change', e => {
