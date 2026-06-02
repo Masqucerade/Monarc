@@ -615,7 +615,7 @@ app.post('/webhook', async (req, res) => {
     `Отслеживай посылки, смотри тарифы и добавляй трек\\-номера прямо в приложении 👇`;
 
   const keyboard = WEBAPP_URL ? {
-    inline_keyboard: [[{ text: '📦 Открыть Monarc', web_app: { url: WEBAPP_URL } }]],
+    inline_keyboard: [[{ text: '📦 Monarcich Track BOT', web_app: { url: WEBAPP_URL } }]],
   } : undefined;
 
   try {
