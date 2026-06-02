@@ -647,5 +647,5 @@ app.listen(PORT, () => {
   console.log(`   Admin ID : ${ADMIN_ID}`);
   console.log(`   Mode     : ${process.env.NODE_ENV}\n`);
   setupBot();
-  setInterval(sendAutoBackup, 60 * 60 * 1000); // every hour
+  setInterval(sendAutoBackup, 6 * 60 * 60 * 1000); // every 6 hours
 });
