@@ -597,6 +597,40 @@ setInterval(tick,1000);
 </body></html>`);
 });
 
+// ── Telegram webhook ──────────────────────────────────────────────
+
+app.post('/webhook', async (req, res) => {
+  res.sendStatus(200); // ответить Telegram сразу
+  const update = req.body;
+  if (!update?.message) return;
+
+  const { chat, text } = update.message;
+  if (text !== '/start') return;
+
+  const WEBAPP_URL = process.env.WEBAPP_URL;
+  const welcome =
+    `Добро пожаловать в Monarc Cargo\\!\n\n` +
+    `📦 Доставляем товары из:\n` +
+    `🇮🇹 Италия • 🇬🇧 UK • 🇨🇳 Китай • 🇯🇵 Япония\n\n` +
+    `Отслеживай посылки, смотри тарифы и добавляй трек\\-номера прямо в приложении 👇`;
+
+  const keyboard = WEBAPP_URL ? {
+    inline_keyboard: [[{ text: '📦 Открыть Monarc', web_app: { url: WEBAPP_URL } }]],
+  } : undefined;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chat.id,
+        text: welcome,
+        parse_mode: 'MarkdownV2',
+        reply_markup: keyboard,
+      }),
+    });
+  } catch (err) { console.error('Webhook send error:', err.message); }
+});
+
 // ── Bot setup ─────────────────────────────────────────────────────
 
 async function setupBot() {
@@ -604,11 +638,17 @@ async function setupBot() {
   const WEBAPP_URL = process.env.WEBAPP_URL;
   if (!WEBAPP_URL || WEBAPP_URL === 'https://yourdomain.com') return;
   try {
+    // Меню-кнопка
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setChatMenuButton`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ menu_button: { type: 'web_app', text: '📦 Monarc', web_app: { url: WEBAPP_URL } } }),
     });
-    console.log('Bot menu button set to:', WEBAPP_URL);
+    // Регистрация webhook
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: `${WEBAPP_URL}/webhook` }),
+    });
+    console.log('Bot ready, webhook:', `${WEBAPP_URL}/webhook`);
   } catch {}
 }
 
