@@ -101,8 +101,8 @@ function pkgCard(p, isAdmin) {
   const detailsRow = isPending
     ? `<div style="font-size:13px;color:var(--text3);margin-bottom:12px;position:relative;z-index:1">Ожидаем поступления — менеджер обновит статус</div>`
     : `<div class="pkg-details">
-        <div class="pkg-detail-item"><div class="pkg-detail-label">Вес</div><div class="pkg-detail-val">${p.weight} кг</div></div>
-        <div class="pkg-detail-item"><div class="pkg-detail-label">Тариф</div><div class="pkg-detail-val">${r.type}</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">Вес</div><div class="pkg-detail-val">${p.weight > 0 ? p.weight + ' кг' : 'Не указан'}</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">Тариф</div><div class="pkg-detail-val">${r.rate > 0 ? r.type : '—'}</div></div>
         <div class="pkg-detail-item"><div class="pkg-detail-label">₽/кг</div><div class="pkg-detail-val">${r.rate > 0 ? fmt(r.rate) + ' ₽' : '—'}</div></div>
         <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${total > 0 ? '~' + fmt(total) + ' ₽' : '—'}</div></div>
       </div>`;
@@ -144,6 +144,7 @@ function pkgCard(p, isAdmin) {
         ${statusBadge(p.status)}
       </div>
       <div class="pkg-country"><span>${c.flag}</span>${c.name}</div>
+      ${p.item_name ? `<div class="pkg-item-name">${p.item_name}</div>` : ''}
       ${detailsRow}
       ${clientRow}
       ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;position:relative;z-index:1">${p.description}</div>` : ''}
@@ -428,6 +429,7 @@ function openEditModal(pkg) {
   document.getElementById('modal-title').textContent = 'Редактировать посылку';
   document.getElementById('pkg-id').value = pkg.id;
   document.getElementById('pkg-tracking').value = pkg.tracking_number;
+  document.getElementById('pkg-item-name').value = pkg.item_name || '';
   document.getElementById('pkg-weight').value = pkg.weight || '';
   document.getElementById('pkg-country').value = pkg.country || 'eu';
   document.getElementById('pkg-client-id').value = pkg.client_id || '';
@@ -466,9 +468,11 @@ async function handleFormSubmit(e) {
     tariff_rate = parseFloat(tariff_rate);
   }
 
+  const weightVal = parseFloat(document.getElementById('pkg-weight').value);
   const body = {
     tracking_number: document.getElementById('pkg-tracking').value.trim(),
-    weight: parseFloat(document.getElementById('pkg-weight').value),
+    item_name: document.getElementById('pkg-item-name').value.trim() || undefined,
+    weight: isNaN(weightVal) ? 0 : weightVal,
     country,
     tariff_type: tariff_type || undefined,
     tariff_rate: tariff_rate || undefined,

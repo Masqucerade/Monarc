@@ -163,9 +163,8 @@ app.get('/api/packages', authMiddleware, (req, res) => {
 app.post('/api/packages', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
 
-  const { tracking_number, client_id, client_username, client_name, weight, country, description, status } = req.body;
+  const { tracking_number, client_id, client_username, client_name, weight, country, description, status, item_name } = req.body;
   if (!tracking_number?.trim()) return res.status(400).json({ error: 'Трек-номер обязателен' });
-  if (!weight || isNaN(weight) || weight <= 0) return res.status(400).json({ error: 'Вес обязателен' });
 
   const db = readDB();
   const track = tracking_number.trim().toUpperCase();
@@ -181,7 +180,8 @@ app.post('/api/packages', authMiddleware, (req, res) => {
     client_id: client_id || null,
     client_username: client_username ? client_username.replace('@', '') : null,
     client_name: client_name || null,
-    weight: parseFloat(weight),
+    item_name: item_name || null,
+    weight: weight ? parseFloat(weight) : 0,
     country: country || 'eu',
     tariff_type: tariff_type || null,
     tariff_rate: tariff_rate ? parseFloat(tariff_rate) : null,
@@ -266,11 +266,12 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
 
   const pkg = db.packages[idx];
   const prev = pkg.status;
-  const { status, weight, description, client_id, client_username, client_name, country } = req.body;
+  const { status, weight, description, client_id, client_username, client_name, country, item_name } = req.body;
 
   if (status)                    pkg.status = status;
-  if (weight)                    pkg.weight = parseFloat(weight);
+  if (weight !== undefined)      pkg.weight = weight ? parseFloat(weight) : 0;
   if (country)                   pkg.country = country;
+  if (item_name !== undefined)   pkg.item_name = item_name || null;
   if (description !== undefined) pkg.description = description || null;
   if (client_id)                 pkg.client_id = client_id;
   if (client_username !== undefined) pkg.client_username = client_username ? client_username.replace('@', '') : null;
