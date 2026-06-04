@@ -122,7 +122,7 @@ body::after {
 }
 .loading-fill {
   height: 100%; width: 0;
-  background: linear-gradient(90deg, var(--purple), var(--purple2));
+  background: #ffffff;
   border-radius: 99px; animation: loadFill 1.2s ease-out forwards;
 }
 
@@ -164,10 +164,9 @@ body::after {
 .header-actions { display: flex; align-items: center; gap: 8px; }
 .btn-add-admin {
   width: 34px; height: 34px; border-radius: 10px;
-  background: linear-gradient(135deg, var(--purple-d), var(--purple));
+  background: #ffffff;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; transition: opacity 0.2s, transform 0.15s;
-  box-shadow: 0 0 14px var(--purple-glow);
+  color: #08080f; transition: opacity 0.2s, transform 0.15s;
 }
 .btn-add-admin:active { transform: scale(0.92); opacity: 0.85; }
 
@@ -766,7 +765,7 @@ body::after {
   width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
   background: linear-gradient(135deg, var(--purple-d), var(--purple));
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 900; color: #fff;
+  font-family: 'Montserrat', sans-serif; font-size: 11px; font-weight: 900; color: #08080f;
   box-shadow: 0 0 14px var(--purple-glow); z-index: 1; position: relative;
 }
 .i-tl-line {
@@ -823,9 +822,9 @@ body::after {
 }
 .i-contact-icon {
   width: 44px; height: 44px; border-radius: 13px; flex-shrink: 0;
-  background: linear-gradient(135deg, var(--purple-d), var(--purple));
+  background: rgba(255,255,255,0.1);
   display: flex; align-items: center; justify-content: center; color: #fff;
-  box-shadow: 0 4px 16px var(--purple-glow); position: relative;
+  position: relative;
 }
 .i-contact-info { flex: 1; position: relative; }
 .i-contact-title { font-size: 13px; color: var(--text2); }
