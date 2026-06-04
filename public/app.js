@@ -101,8 +101,9 @@ function statusBadge(status) {
 function pkgCard(p, isAdmin) {
   const country = p.country || 'eu';
   const c = COUNTRIES[country] || COUNTRIES.eu;
-  const r = calcRate(p.weight, country);
-  const total = r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0;
+  // Используем сохранённый тариф если он есть, иначе пересчитываем
+  const r = (p.type && p.rate) ? { type: p.type, rate: p.rate } : calcRate(p.weight, country);
+  const total = p.total || (r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0);
   const isPending = p.status === 'pending';
 
   const shineEl = '';
@@ -434,8 +435,8 @@ async function doTrack(number) {
     const p = await apiFetch(`/api/track/${encodeURIComponent(number.trim().toUpperCase())}`);
     const country = p.country || 'eu';
     const c = COUNTRIES[country] || COUNTRIES.eu;
-    const r = calcRate(p.weight, country);
-    const total = r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0;
+    const r = (p.type && p.rate) ? { type: p.type, rate: p.rate } : calcRate(p.weight, country);
+    const total = p.total || (r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0);
     const owned = p.client_id === state.user?.id;
     const unclaimed = !p.client_id;
     const historyHtml = (p.history || []).map(h =>
