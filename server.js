@@ -440,16 +440,14 @@ function formatAmount(amount, currency) {
 
 async function notifyClientInvoice(clientId, inv) {
   if (!BOT_TOKEN || !clientId) return;
-  const WEBAPP_URL = process.env.WEBAPP_URL;
   const details = inv.payment_details ? `\n\n📋 <b>Реквизиты:</b>\n${inv.payment_details}` : '';
   try {
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: clientId,
-        text: `💰 <b>Новый счёт #${inv.id}</b>\n\n${inv.description}\nСумма: <b>${formatAmount(inv.amount, inv.currency)}</b>${details}\n\nОткройте приложение для подтверждения оплаты`,
+        text: `💰 <b>Новый счёт #${inv.id}</b>\n\n${inv.description}\nСумма: <b>${formatAmount(inv.amount, inv.currency)}</b>${details}\n\nОткройте приложение Monarc чтобы подтвердить оплату`,
         parse_mode: 'HTML',
-        reply_markup: WEBAPP_URL ? { inline_keyboard: [[{ text: '📦 Открыть Monarc', web_app: { url: WEBAPP_URL } }]] } : undefined,
       }),
     });
   } catch (err) { console.error('Invoice notify error:', err.message); }

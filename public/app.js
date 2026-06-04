@@ -965,8 +965,6 @@ async function init() {
     return;
   }
 
-  await new Promise(r => setTimeout(r, 1200));
-
   try {
     state.user = await apiFetch('/api/me');
 
@@ -1016,13 +1014,14 @@ async function init() {
 
     document.getElementById('my-id-value').textContent = state.user.id;
 
-    await loadPackages();
+    // Показываем приложение сразу, данные грузятся в фоне
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+
+    loadPackages();
     setupCalc();
     setupWarehouseTabs();
     if (state.user.is_admin) { loadPaymentTemplates(); setupTemplateMgmt(); }
-
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
   } catch (e) {
     document.getElementById('loading').innerHTML = `
       <div style="text-align:center;padding:24px;position:relative;z-index:1">
