@@ -712,12 +712,12 @@ app.get('/admin/live', (req, res) => {
   body{font-family:'Inter',-apple-system,sans-serif;background:#08080f;color:#f1f5f9;min-height:100vh}
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@900&display=swap');
   header{background:rgba(8,8,15,.9);border-bottom:1px solid rgba(255,255,255,.08);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;backdrop-filter:blur(16px)}
-  .logo{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:900;letter-spacing:3px;background:linear-gradient(135deg,#fff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .logo{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:900;letter-spacing:3px;color:#ffffff}
   .refresh-info{font-size:12px;color:#64748b}
-  .countdown{color:#a78bfa;font-weight:600}
+  .countdown{color:#ffffff;font-weight:600}
   .stats{display:flex;gap:12px;padding:16px 20px;flex-wrap:wrap}
   .stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 16px;font-size:13px}
-  .stat b{font-size:20px;font-weight:700;display:block;background:linear-gradient(135deg,#fff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .stat b{font-size:20px;font-weight:700;display:block;color:#ffffff}
   .wrap{overflow-x:auto;padding:0 20px 40px}
   table{width:100%;border-collapse:collapse;font-size:13px;min-width:900px}
   thead th{text-align:left;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08);color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
@@ -729,12 +729,12 @@ app.get('/admin/live', (req, res) => {
   .b-pending   {background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25)}
   .b-received  {background:rgba(59,130,246,.12); color:#60a5fa;border:1px solid rgba(59,130,246,.2)}
   .b-processing{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25)}
-  .b-shipped   {background:rgba(139,92,246,.12); color:#a78bfa;border:1px solid rgba(139,92,246,.3)}
+  .b-shipped   {background:rgba(255,255,255,.08); color:#e2e8f0;border:1px solid rgba(255,255,255,.18)}
   .b-ready     {background:rgba(34,197,94,.12);  color:#4ade80;border:1px solid rgba(34,197,94,.3)}
   .b-delivered {background:rgba(100,116,139,.12);color:#94a3b8;border:1px solid rgba(100,116,139,.2)}
   .muted{color:#475569}
-  .csv-link{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);color:#a78bfa;text-decoration:none;font-size:12px;font-weight:600}
-  .csv-link:hover{background:rgba(139,92,246,.2)}
+  .csv-link{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#f1f5f9;text-decoration:none;font-size:12px;font-weight:600}
+  .csv-link:hover{background:rgba(255,255,255,.14)}
   .btn-refresh{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#4ade80;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s}
   .btn-refresh:hover{background:rgba(34,197,94,.18)}
   .btn-refresh.spinning svg{animation:spin .6s linear infinite}

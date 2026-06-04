@@ -948,7 +948,7 @@ async function init() {
       <div style="text-align:center;padding:32px 24px;max-width:320px;position:relative;z-index:1">
         <div style="font-size:52px;margin-bottom:20px">✈️</div>
         <div style="font-family:'Montserrat',sans-serif;font-size:26px;font-weight:900;letter-spacing:5px;
-          background:linear-gradient(135deg,#fff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+          color:#ffffff;
           margin-bottom:6px">MONARC</div>
         <div style="color:#94a3b8;font-size:13px;margin-bottom:28px">Cargo Delivery</div>
         <div style="color:#f1f5f9;font-size:15px;font-weight:600;margin-bottom:8px">Откройте в Telegram</div>
@@ -957,7 +957,7 @@ async function init() {
         </div>
         <a href="https://t.me/euro_monarc"
           style="display:inline-block;padding:12px 28px;border-radius:12px;
-          background:linear-gradient(135deg,#6d28d9,#8b5cf6);color:#fff;
+          background:#ffffff;color:#08080f;
           font-weight:700;font-size:14px;text-decoration:none">
           Написать менеджеру →
         </a>
