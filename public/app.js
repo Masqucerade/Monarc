@@ -139,7 +139,7 @@ function pkgCard(p, isAdmin) {
           </div>`
         : dr?.status === 'pending'
           ? `<div class="pkg-delivery-pending">⏳ Ожидаем данные от клиента</div>`
-          : `<button class="btn-req-delivery" data-id="${p.id}">📬 Запросить доставку</button>`
+          : '' // кнопка перенесена в строку действий
       : dr?.status === 'pending'
         ? `<button class="btn-fill-delivery" data-id="${p.id}">📬 Указать адрес доставки</button>`
         : dr?.status === 'filled'
@@ -147,9 +147,15 @@ function pkgCard(p, isAdmin) {
           : ''
     : '';
 
+  // Кнопка запроса доставки — иконка в строке с остальными кнопками
+  const deliveryIconBtn = (isAdmin && !isPending && !dr)
+    ? `<button class="btn-req-delivery btn-action-icon" data-id="${p.id}" title="Запросить доставку">📬</button>`
+    : '';
+
   const actionsRow = isAdmin
     ? `<div class="pkg-actions">
         <button class="btn-edit-status" data-id="${p.id}">Изменить / Редактировать</button>
+        ${deliveryIconBtn}
         <button class="btn-delete" data-id="${p.id}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </button>
