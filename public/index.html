@@ -382,6 +382,25 @@
           </button>
         </div>
 
+        <!-- Client templates -->
+        <div class="i-section-label" style="margin-top:16px">Постоянные клиенты</div>
+        <div class="tpl-mgmt-card">
+          <div id="ct-list"></div>
+          <div id="ct-add-form" class="tpl-add-form" style="display:none">
+            <input type="text" id="ct-name" placeholder="Имя клиента *" autocomplete="off" />
+            <input type="text" id="ct-telegram-id" placeholder="Telegram ID (числовой)" autocomplete="off" />
+            <input type="text" id="ct-username" placeholder="@username (необязательно)" autocomplete="off" />
+            <div class="tpl-add-actions">
+              <button id="ct-save-btn" class="btn-tpl-save">Сохранить</button>
+              <button id="ct-cancel-btn" class="btn-tpl-cancel">Отмена</button>
+            </div>
+          </div>
+          <button id="ct-add-btn" class="btn-tpl-add">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Добавить клиента
+          </button>
+        </div>
+
       </div>
 
     </section>
@@ -447,9 +466,13 @@
         <label>Тариф</label>
         <select id="pkg-tariff"></select>
       </div>
+      <div class="form-group">
+        <label>Клиент</label>
+        <div id="pkg-client-chips" class="tpl-chips-row"></div>
+      </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Telegram ID клиента</label>
+          <label>Telegram ID</label>
           <input type="text" id="pkg-client-id" placeholder="885394476" autocomplete="off" />
         </div>
         <div class="form-group">
@@ -526,7 +549,8 @@
     </div>
     <form id="invoice-form" class="modal-form">
       <div class="form-group">
-        <label>Клиент (Telegram ID или @username)</label>
+        <label>Клиент</label>
+        <div id="inv-client-chips" class="tpl-chips-row"></div>
         <input type="text" id="inv-client" placeholder="@username или 123456789" autocomplete="off" />
       </div>
       <div class="form-row">

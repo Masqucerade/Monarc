@@ -385,14 +385,17 @@ app.post('/api/admin/restore', authMiddleware, (req, res) => {
   const invIds = (data.invoices || []).map(i => i.id).filter(Boolean);
 
   const tplIds = (data.payment_templates || []).map(t => t.id).filter(Boolean);
+  const ctIds  = (data.client_templates  || []).map(c => c.id).filter(Boolean);
   writeDB({
-    packages:          data.packages,
-    nextId:            data.nextId            || (pkgIds.length ? Math.max(...pkgIds) + 1 : 1),
-    invoices:          data.invoices          || [],
-    nextInvoiceId:     data.nextInvoiceId     || (invIds.length ? Math.max(...invIds) + 1 : 1),
-    users:             data.users             || [],
-    payment_templates: data.payment_templates || [],
-    nextTemplateId:    data.nextTemplateId    || (tplIds.length ? Math.max(...tplIds) + 1 : 1),
+    packages:           data.packages,
+    nextId:             data.nextId             || (pkgIds.length ? Math.max(...pkgIds) + 1 : 1),
+    invoices:           data.invoices           || [],
+    nextInvoiceId:      data.nextInvoiceId      || (invIds.length ? Math.max(...invIds) + 1 : 1),
+    users:              data.users              || [],
+    payment_templates:  data.payment_templates  || [],
+    nextTemplateId:     data.nextTemplateId     || (tplIds.length ? Math.max(...tplIds) + 1 : 1),
+    client_templates:   data.client_templates   || [],
+    nextClientTplId:    data.nextClientTplId    || (ctIds.length  ? Math.max(...ctIds)  + 1 : 1),
   });
 
   res.json({
@@ -400,7 +403,43 @@ app.post('/api/admin/restore', authMiddleware, (req, res) => {
     packages:  data.packages.length,
     invoices:  (data.invoices || []).length,
     templates: (data.payment_templates || []).length,
+    clients:   (data.client_templates  || []).length,
   });
+});
+
+// ── Client templates (saved clients) ─────────────────────────────
+
+app.get('/api/client-templates', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  res.json(readDB().client_templates || []);
+});
+
+app.post('/api/client-templates', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const { name, username, telegram_id } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Укажите имя клиента' });
+  if (!telegram_id && !username) return res.status(400).json({ error: 'Укажите Telegram ID или @username' });
+  const db = readDB();
+  if (!db.client_templates) db.client_templates = [];
+  if (!db.nextClientTplId) db.nextClientTplId = 1;
+  const ct = {
+    id: db.nextClientTplId++,
+    name: name.trim(),
+    username: username ? username.replace(/^@/, '').trim().toLowerCase() : null,
+    telegram_id: telegram_id ? String(telegram_id).trim() : null,
+    created_at: now(),
+  };
+  db.client_templates.push(ct);
+  writeDB(db);
+  res.json(ct);
+});
+
+app.delete('/api/client-templates/:id', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const db = readDB();
+  db.client_templates = (db.client_templates || []).filter(c => c.id !== parseInt(req.params.id));
+  writeDB(db);
+  res.json({ success: true });
 });
 
 // ── Payment templates ─────────────────────────────────────────────

@@ -305,7 +305,8 @@ function switchView(view) {
 async function openInvoiceModal() {
   document.getElementById('invoice-form').reset();
   showModal('invoice-modal-overlay');
-  await loadPaymentTemplates(); // гарантируем свежие чипы
+  loadClientTemplates();
+  await loadPaymentTemplates();
 }
 
 async function handleInvoiceFormSubmit(e) {
@@ -628,6 +629,7 @@ function openAddModal() {
   document.getElementById('pkg-country').value = 'eu';
   updateAdminTariffSelector('eu');
   showModal('modal-overlay');
+  renderClientChips();
 }
 
 function openEditModal(pkg) {
@@ -742,6 +744,103 @@ async function clientRemovePackage(id) {
     toast('Посылка убрана из списка', 'success');
     loadPackages();
   } catch (e) { toast(e.message, 'error'); }
+}
+
+/* ── Client Templates ────────────────────────────────────────────── */
+let clientTemplates = [];
+
+async function loadClientTemplates() {
+  try {
+    clientTemplates = await apiFetch('/api/client-templates');
+    renderClientChips();
+    renderClientMgmt();
+  } catch {}
+}
+
+function renderClientChips() {
+  ['pkg-client-chips', 'inv-client-chips'].forEach(id => {
+    const row = document.getElementById(id);
+    if (!row) return;
+    if (!clientTemplates.length) { row.innerHTML = ''; return; }
+    row.innerHTML = clientTemplates.map(ct =>
+      `<button type="button" class="tpl-chip" data-ct-id="${ct.id}">${ct.name}</button>`
+    ).join('');
+    row.querySelectorAll('.tpl-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ct = clientTemplates.find(c => c.id === parseInt(btn.dataset.ctId));
+        if (!ct) return;
+        if (id === 'pkg-client-chips') {
+          document.getElementById('pkg-client-id').value = ct.telegram_id || '';
+          document.getElementById('pkg-client-username').value = ct.username ? '@' + ct.username : '';
+          document.getElementById('pkg-client-name').value = ct.name || '';
+        } else {
+          document.getElementById('inv-client').value = ct.telegram_id || (ct.username ? '@' + ct.username : '');
+        }
+        haptic('light');
+      });
+    });
+  });
+}
+
+function renderClientMgmt() {
+  const list = document.getElementById('ct-list');
+  if (!list) return;
+  if (!clientTemplates.length) {
+    list.innerHTML = `<div style="font-size:13px;color:var(--text3);padding:4px 0 12px">Нет сохранённых клиентов</div>`;
+    return;
+  }
+  list.innerHTML = clientTemplates.map(ct => `
+    <div class="tpl-mgmt-row">
+      <div class="tpl-mgmt-info">
+        <div class="tpl-mgmt-name">${ct.name}</div>
+        <div class="tpl-mgmt-preview">${[ct.telegram_id, ct.username ? '@' + ct.username : ''].filter(Boolean).join(' · ')}</div>
+      </div>
+      <button class="btn-tpl-delete" data-ct-id="${ct.id}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button>
+    </div>`).join('');
+  list.querySelectorAll('.btn-tpl-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await apiFetch(`/api/client-templates/${btn.dataset.ctId}`, { method: 'DELETE' });
+        await loadClientTemplates();
+        toast('Клиент удалён', 'success');
+      } catch (e) { toast(e.message, 'error'); }
+    });
+  });
+}
+
+function setupClientMgmt() {
+  const addBtn    = document.getElementById('ct-add-btn');
+  const addForm   = document.getElementById('ct-add-form');
+  const cancelBtn = document.getElementById('ct-cancel-btn');
+  const saveBtn   = document.getElementById('ct-save-btn');
+  if (!addBtn) return;
+
+  addBtn.addEventListener('click', () => {
+    addForm.style.display = 'flex'; addBtn.style.display = 'none';
+    document.getElementById('ct-name').focus();
+  });
+  cancelBtn.addEventListener('click', () => {
+    addForm.style.display = 'none'; addBtn.style.display = 'flex';
+    ['ct-name','ct-telegram-id','ct-username'].forEach(id => document.getElementById(id).value = '');
+  });
+  saveBtn.addEventListener('click', async () => {
+    const name        = document.getElementById('ct-name').value.trim();
+    const telegram_id = document.getElementById('ct-telegram-id').value.trim();
+    const username    = document.getElementById('ct-username').value.trim();
+    if (!name) { toast('Укажите имя клиента', 'error'); return; }
+    if (!telegram_id && !username) { toast('Укажите Telegram ID или @username', 'error'); return; }
+    saveBtn.disabled = true; saveBtn.textContent = 'Сохраняем…';
+    try {
+      await apiFetch('/api/client-templates', { method: 'POST', body: JSON.stringify({ name, username, telegram_id }) });
+      await loadClientTemplates();
+      addForm.style.display = 'none'; addBtn.style.display = 'flex';
+      ['ct-name','ct-telegram-id','ct-username'].forEach(id => document.getElementById(id).value = '');
+      toast('Клиент сохранён', 'success'); haptic('medium');
+    } catch (e) { toast(e.message, 'error'); }
+    finally { saveBtn.disabled = false; saveBtn.textContent = 'Сохранить'; }
+  });
 }
 
 /* ── Payment Templates ───────────────────────────────────────────── */
@@ -862,9 +961,10 @@ async function restoreBackup(file) {
     const text = await file.text();
     const data = JSON.parse(text);
     const result = await apiFetch('/api/admin/restore', { method: 'POST', body: JSON.stringify({ data }) });
-    toast(`Восстановлено: ${result.packages} посылок, ${result.invoices} счетов, ${result.templates} шаблонов`, 'success');
+    toast(`Восстановлено: ${result.packages} посылок, ${result.invoices} счетов, ${result.templates} шаблонов, ${result.clients} клиентов`, 'success');
     loadPackages();
     loadPaymentTemplates();
+    loadClientTemplates();
   } catch (e) { toast('Ошибка восстановления — проверьте файл', 'error'); }
 }
 
@@ -1080,7 +1180,10 @@ async function init() {
     loadPackages();
     setupCalc();
     setupWarehouseTabs();
-    if (state.user.is_admin) { loadPaymentTemplates(); setupTemplateMgmt(); }
+    if (state.user.is_admin) {
+      loadPaymentTemplates(); setupTemplateMgmt();
+      loadClientTemplates();  setupClientMgmt();
+    }
   } catch (e) {
     document.getElementById('loading').innerHTML = `
       <div style="text-align:center;padding:24px;position:relative;z-index:1">
