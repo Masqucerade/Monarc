@@ -282,7 +282,7 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
 
   const pkg = db.packages[idx];
   const prev = pkg.status;
-  const { status, weight, description, client_id, client_username, client_name, country, item_name } = req.body;
+  const { status, weight, description, client_id, client_username, client_name, country, item_name, tariff_type, tariff_rate } = req.body;
 
   if (status)                    pkg.status = status;
   if (weight !== undefined)      pkg.weight = weight ? parseFloat(weight) : 0;
@@ -292,6 +292,8 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
   if (client_id)                 pkg.client_id = client_id;
   if (client_username !== undefined) pkg.client_username = client_username ? client_username.replace('@', '') : null;
   if (client_name !== undefined)     pkg.client_name = client_name || null;
+  pkg.tariff_type = tariff_type || null;
+  pkg.tariff_rate = tariff_rate ? parseFloat(tariff_rate) : null;
   pkg.updated_at = now();
 
   if (status && status !== prev) {

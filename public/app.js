@@ -646,6 +646,12 @@ function openEditModal(pkg) {
   document.getElementById('pkg-status').value = pkg.status;
   document.getElementById('pkg-description').value = pkg.description || '';
   updateAdminTariffSelector(pkg.country || 'eu');
+  // Восстанавливаем выбранный тариф
+  if (pkg.tariff_type && pkg.tariff_rate) {
+    const sel = document.getElementById('pkg-tariff');
+    if (sel) sel.value = `${pkg.tariff_type}|${pkg.tariff_rate}`;
+  }
+  renderClientChips();
   showModal('modal-overlay');
 }
 
