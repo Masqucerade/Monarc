@@ -355,9 +355,9 @@ body::after {
   opacity: 0.06; pointer-events: none;
 }
 .pkg-card.status-pending    { --status-color: var(--yellow);  border-color: rgba(245,158,11,0.18); }
-.pkg-card.status-received   { --status-color: var(--blue);    border-color: rgba(59,130,246,0.15); }
-.pkg-card.status-processing { --status-color: var(--yellow); }
-.pkg-card.status-shipped    { --status-color: var(--purple);  border-color: rgba(255,255,255,0.1); }
+.pkg-card.status-received   { --status-color: var(--yellow);  border-color: rgba(249,115,22,0.18); }
+.pkg-card.status-processing { --status-color: var(--text3);   border-color: rgba(100,116,139,0.2); }
+.pkg-card.status-shipped    { --status-color: var(--blue);    border-color: rgba(59,130,246,0.18); }
 .pkg-card.status-ready      {
   --status-color: var(--green);
   border-color: rgba(34,197,94,0.25);
@@ -397,9 +397,9 @@ body::after {
   padding: 4px 10px; border-radius: 99px; flex-shrink: 0; white-space: nowrap;
 }
 .badge-pending    { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
-.badge-received   { background: rgba(59,130,246,0.12);  color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
-.badge-processing { background: rgba(245,158,11,0.12);  color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
-.badge-shipped    { background: rgba(255,255,255,0.07);  color: var(--purple2); border: 1px solid var(--border-acc); }
+.badge-received   { background: rgba(249,115,22,0.12);  color: #fb923c; border: 1px solid rgba(249,115,22,0.25); }
+.badge-processing { background: rgba(100,116,139,0.12); color: #94a3b8; border: 1px solid rgba(100,116,139,0.2); }
+.badge-shipped    { background: rgba(59,130,246,0.12);   color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
 .badge-ready      { background: rgba(34,197,94,0.12);   color: #4ade80; border: 1px solid rgba(34,197,94,0.3); box-shadow: 0 0 10px var(--green-glow); }
 .badge-delivered  { background: rgba(100,116,139,0.12); color: #94a3b8; border: 1px solid rgba(100,116,139,0.2); }
 

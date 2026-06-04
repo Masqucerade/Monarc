@@ -130,10 +130,12 @@ async function notifyClient(clientId, trackingNumber, status) {
     `Трек: <code>${trackingNumber}</code>\n` +
     `Статус: <b>${STATUS_LABELS[status] || status}</b>`;
   try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: clientId, text, parse_mode: 'HTML' }),
     });
+    const data = await res.json();
+    if (!data.ok) console.error(`TG notify failed [${clientId}]:`, data.description);
   } catch (err) { console.error('TG notify error:', err.message); }
 }
 
@@ -769,9 +771,9 @@ app.get('/admin/live', (req, res) => {
   .track{font-family:monospace;font-size:13px;font-weight:600;letter-spacing:.5px}
   .badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600}
   .b-pending   {background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25)}
-  .b-received  {background:rgba(59,130,246,.12); color:#60a5fa;border:1px solid rgba(59,130,246,.2)}
-  .b-processing{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25)}
-  .b-shipped   {background:rgba(255,255,255,.08); color:#e2e8f0;border:1px solid rgba(255,255,255,.18)}
+  .b-received  {background:rgba(249,115,22,.12);  color:#fb923c;border:1px solid rgba(249,115,22,.25)}
+  .b-processing{background:rgba(100,116,139,.12);color:#94a3b8;border:1px solid rgba(100,116,139,.2)}
+  .b-shipped   {background:rgba(59,130,246,.12);  color:#60a5fa;border:1px solid rgba(59,130,246,.2)}
   .b-ready     {background:rgba(34,197,94,.12);  color:#4ade80;border:1px solid rgba(34,197,94,.3)}
   .b-delivered {background:rgba(100,116,139,.12);color:#94a3b8;border:1px solid rgba(100,116,139,.2)}
   .muted{color:#475569}
