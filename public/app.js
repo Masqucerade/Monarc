@@ -1104,7 +1104,7 @@ async function restoreBackup(file) {
     loadPackages();
     loadPaymentTemplates();
     loadClientTemplates();
-  } catch (e) { toast('Ошибка восстановления — проверьте файл', 'error'); }
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
 }
 
 /* ── Navigation ──────────────────────────────────────────────────── */

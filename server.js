@@ -10,9 +10,10 @@ const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_ID = process.env.ADMIN_ID || '885394476';
 // На Railway используем /data (Volume), локально — рядом с сервером
-const DB_FILE = process.env.NODE_ENV === 'production'
-  ? '/data/data.json'
-  : path.join(__dirname, 'data.json');
+const DATA_DIR = process.env.NODE_ENV === 'production' ? '/data' : __dirname;
+const DB_FILE  = path.join(DATA_DIR, 'data.json');
+// Создаём директорию если её нет (нужно при первом запуске с Volume)
+try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
 
 // Deterministic export token derived from secrets (no extra env var needed)
 const EXPORT_TOKEN = process.env.EXPORT_TOKEN ||
