@@ -30,13 +30,19 @@ function writeDB(data) {
 
 function now() { return new Date().toISOString(); }
 
-// Resolve Telegram ID: by client_id or by username lookup in saved users
+// Resolve Telegram ID: by client_id or by username lookup (users → packages fallback)
 function resolveClientId(clientId, clientUsername, db) {
   if (clientId) return clientId;
   if (!clientUsername) return null;
   const uname = clientUsername.replace('@', '').toLowerCase();
-  const found = (db.users || []).find(u => (u.username || '').toLowerCase() === uname);
-  return found?.id || null;
+  // 1. Check users saved from bot interactions
+  const foundUser = (db.users || []).find(u => (u.username || '').toLowerCase() === uname);
+  if (foundUser?.id) return foundUser.id;
+  // 2. Fallback: check packages where admin already linked this username to an ID
+  const foundPkg = (db.packages || []).find(p =>
+    (p.client_username || '').toLowerCase() === uname && p.client_id
+  );
+  return foundPkg?.client_id || null;
 }
 
 // ── Middleware ────────────────────────────────────────────────────
@@ -429,13 +435,14 @@ app.post('/api/invoices', authMiddleware, async (req, res) => {
   if (!db.invoices) db.invoices = [];
   if (!db.nextInvoiceId) db.nextInvoiceId = 1;
 
-  // Resolve client: could be @username or numeric id
-  const isUsername = client && client.toString().startsWith('@');
-  const clientUsername = isUsername ? client.replace('@', '') : null;
-  const clientId = !isUsername && client ? String(client) : null;
+  // Resolve client: @username, plain username, or numeric ID
+  const clientRaw = client ? String(client).trim() : '';
+  const isNumericId = /^\d{5,}$/.test(clientRaw); // numeric = Telegram ID (5+ digits)
+  const clientId = isNumericId ? clientRaw : null;
+  const clientUsername = !isNumericId && clientRaw ? clientRaw.replace(/^@/, '').toLowerCase() : null;
   const foundUser = (db.users || []).find(u =>
     (clientId && u.id === clientId) ||
-    (clientUsername && (u.username || '').toLowerCase() === clientUsername.toLowerCase())
+    (clientUsername && (u.username || '').toLowerCase() === clientUsername)
   );
 
   const inv = {
