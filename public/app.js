@@ -238,15 +238,45 @@ async function loadInvoices() {
 function renderInvoices() {
   const list = document.getElementById('invoices-list');
   const isAdmin = state.user?.is_admin;
-  if (!state.invoices.length) {
+
+  const active   = state.invoices.filter(inv => !['paid', 'cancelled'].includes(inv.status));
+  const archived = state.invoices.filter(inv =>  ['paid', 'cancelled'].includes(inv.status));
+
+  if (!active.length && !archived.length) {
     list.innerHTML = `<div class="empty-state">
       <div class="empty-icon">💰</div>
-      <div class="empty-title">${isAdmin ? 'Счетов нет' : 'Счетов нет'}</div>
+      <div class="empty-title">Счетов нет</div>
       <div class="empty-sub">${isAdmin ? 'Нажмите «+» чтобы выставить счёт' : 'Когда менеджер выставит счёт — он появится здесь'}</div>
     </div>`;
     return;
   }
-  list.innerHTML = state.invoices.map(inv => invoiceCard(inv, isAdmin)).join('');
+
+  let html = active.length
+    ? active.map(inv => invoiceCard(inv, isAdmin)).join('')
+    : `<div class="empty-state" style="padding:20px 0"><div class="empty-icon">✅</div><div class="empty-title">Активных счетов нет</div></div>`;
+
+  if (archived.length) {
+    html += `
+      <button class="btn-archive-toggle" id="inv-archive-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+        Архив — ${archived.length} завершённых
+        <svg class="archive-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="inv-archive-list" class="archive-list" style="display:none">
+        ${archived.map(inv => invoiceCard(inv, isAdmin)).join('')}
+      </div>`;
+  }
+
+  list.innerHTML = html;
+
+  document.getElementById('inv-archive-btn')?.addEventListener('click', () => {
+    const al = document.getElementById('inv-archive-list');
+    const btn = document.getElementById('inv-archive-btn');
+    const open = al.style.display !== 'none';
+    al.style.display = open ? 'none' : 'block';
+    btn.querySelector('.archive-chevron').style.transform = open ? '' : 'rotate(180deg)';
+    haptic('light');
+  });
 }
 
 /* ── View toggle ─────────────────────────────────────────────────── */
@@ -344,7 +374,11 @@ async function loadPackages() {
 function renderPackages() {
   const list = document.getElementById('packages-list');
   const isAdmin = state.user?.is_admin;
-  if (!state.packages.length) {
+
+  const active   = state.packages.filter(p => p.status !== 'delivered');
+  const archived = state.packages.filter(p => p.status === 'delivered');
+
+  if (!active.length && !archived.length) {
     list.innerHTML = `<div class="empty-state">
       <div class="empty-icon">📭</div>
       <div class="empty-title">${isAdmin ? 'Посылок нет' : 'Ваших посылок нет'}</div>
@@ -352,7 +386,31 @@ function renderPackages() {
     </div>`;
     return;
   }
-  list.innerHTML = state.packages.map(p => pkgCard(p, isAdmin)).join('');
+
+  let html = active.map(p => pkgCard(p, isAdmin)).join('');
+
+  if (archived.length) {
+    html += `
+      <button class="btn-archive-toggle" id="pkg-archive-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+        Архив — ${archived.length} выданных
+        <svg class="archive-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="pkg-archive-list" class="archive-list" style="display:none">
+        ${archived.map(p => pkgCard(p, isAdmin)).join('')}
+      </div>`;
+  }
+
+  list.innerHTML = html;
+
+  document.getElementById('pkg-archive-btn')?.addEventListener('click', () => {
+    const al = document.getElementById('pkg-archive-list');
+    const btn = document.getElementById('pkg-archive-btn');
+    const open = al.style.display !== 'none';
+    al.style.display = open ? 'none' : 'block';
+    btn.querySelector('.archive-chevron').style.transform = open ? '' : 'rotate(180deg)';
+    haptic('light');
+  });
 }
 
 async function loadStats() {

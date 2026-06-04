@@ -205,6 +205,18 @@ body::after {
 .inv-paid::before     { background: linear-gradient(90deg,#22c55e,#4ade80); }
 .inv-cancelled::before{ background: linear-gradient(90deg,#475569,#64748b); }
 
+/* ── Archive toggle ────────────────────────────────────────────── */
+.btn-archive-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 12px 14px; border-radius: var(--radius-sm); margin-top: 8px;
+  background: rgba(255,255,255,0.03); border: 1px dashed var(--border);
+  color: var(--text3); font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.btn-archive-toggle:active { background: rgba(255,255,255,0.06); color: var(--text2); }
+.archive-chevron { margin-left: auto; transition: transform .2s; }
+.archive-list { margin-top: 8px; display: flex; flex-direction: column; gap: 12px; }
+
 .inv-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
 .inv-num { font-size: 11px; color: var(--text3); margin-bottom: 2px; }
 .inv-amount { font-size: 22px; font-weight: 800; color: var(--text1); }
