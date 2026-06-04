@@ -30,6 +30,15 @@ function writeDB(data) {
 
 function now() { return new Date().toISOString(); }
 
+// Resolve Telegram ID: by client_id or by username lookup in saved users
+function resolveClientId(clientId, clientUsername, db) {
+  if (clientId) return clientId;
+  if (!clientUsername) return null;
+  const uname = clientUsername.replace('@', '').toLowerCase();
+  const found = (db.users || []).find(u => (u.username || '').toLowerCase() === uname);
+  return found?.id || null;
+}
+
 // ── Middleware ────────────────────────────────────────────────────
 
 app.use(cors());
@@ -195,7 +204,8 @@ app.post('/api/packages', authMiddleware, (req, res) => {
 
   db.packages.push(pkg);
   writeDB(db);
-  if (client_id) notifyClient(client_id, pkg.tracking_number, initStatus);
+  const notifyId = resolveClientId(client_id, client_username, db);
+  if (notifyId) notifyClient(notifyId, pkg.tracking_number, initStatus);
   res.json(enrichPackage(pkg));
 });
 
@@ -285,7 +295,10 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
 
   db.packages[idx] = pkg;
   writeDB(db);
-  if (status && status !== prev && pkg.client_id) notifyClient(pkg.client_id, pkg.tracking_number, status);
+  if (status && status !== prev) {
+    const notifyId = resolveClientId(pkg.client_id, pkg.client_username, db);
+    if (notifyId) notifyClient(notifyId, pkg.tracking_number, status);
+  }
   res.json(enrichPackage(pkg));
 });
 
@@ -605,7 +618,24 @@ app.post('/webhook', async (req, res) => {
   const update = req.body;
   if (!update?.message) return;
 
-  const { chat, text } = update.message;
+  const { chat, from, text } = update.message;
+
+  // Сохраняем username → ID при каждом сообщении
+  if (from && !from.is_bot && from.username) {
+    const db = readDB();
+    if (!db.users) db.users = [];
+    const idx = db.users.findIndex(u => u.id === String(from.id));
+    const userData = {
+      id: String(from.id),
+      username: from.username.toLowerCase(),
+      name: [from.first_name, from.last_name].filter(Boolean).join(' '),
+      updated_at: now(),
+    };
+    if (idx === -1) { userData.created_at = now(); db.users.push(userData); }
+    else db.users[idx] = { ...db.users[idx], ...userData };
+    writeDB(db);
+  }
+
   if (text !== '/start') return;
 
   const WEBAPP_URL = process.env.WEBAPP_URL;
