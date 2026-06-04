@@ -222,7 +222,12 @@ function invoiceCard(inv, isAdmin) {
         <button class="btn-inv-confirm" data-id="${inv.id}">✅ Подтвердить</button>
         <button class="btn-inv-cancel" data-id="${inv.id}">❌ Отклонить</button>
       </div>`;
-    } else if (inv.status !== 'paid') {
+    } else if (inv.status === 'pending') {
+      actions = `<div class="inv-actions">
+        <button class="btn-inv-confirm" data-id="${inv.id}">✅ Оплачен</button>
+        <button class="btn-inv-cancel" data-id="${inv.id}">❌ Отменить</button>
+      </div>`;
+    } else if (!['paid', 'cancelled'].includes(inv.status)) {
       actions = `<div class="inv-actions">
         <button class="btn-inv-cancel" data-id="${inv.id}" style="width:100%">Отменить</button>
       </div>`;

@@ -288,7 +288,7 @@ body::after {
 .inv-actions { display: flex; gap: 8px; margin-bottom: 4px; }
 .btn-inv-paid {
   flex: 1; padding: 10px; border-radius: var(--radius-xs); font-size: 13px; font-weight: 600;
-  background: rgba(255,255,255,0.07); border: 1px solid var(--border-acc); color: var(--purple2); cursor: pointer;
+  background: rgba(255,255,255,0.07); border: 1.5px solid rgba(255,255,255,0.7); color: #ffffff; cursor: pointer;
 }
 .btn-inv-confirm {
   flex: 1; padding: 10px; border-radius: var(--radius-xs); font-size: 13px; font-weight: 600;
