@@ -151,7 +151,26 @@
             </div>
           </div>
         </div>
+
+        <!-- Payment Templates -->
+        <div class="i-section-label" style="margin-top:16px">Шаблоны реквизитов</div>
+        <div class="tpl-mgmt-card">
+          <div id="tpl-list"></div>
+          <div id="tpl-add-form" class="tpl-add-form" style="display:none">
+            <input type="text" id="tpl-name" placeholder="Название (напр. Тинькофф)" autocomplete="off" />
+            <textarea id="tpl-details" placeholder="Реквизиты для оплаты…" rows="3"></textarea>
+            <div class="tpl-add-actions">
+              <button id="tpl-save-btn" class="btn-tpl-save">Сохранить</button>
+              <button id="tpl-cancel-btn" class="btn-tpl-cancel">Отмена</button>
+            </div>
+          </div>
+          <button id="tpl-add-btn" class="btn-tpl-add">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Добавить шаблон
+          </button>
+        </div>
       </div>
+
     </section>
 
     <!-- ── Info ── -->
@@ -528,6 +547,7 @@
       </div>
       <div class="form-group">
         <label>Реквизиты для оплаты</label>
+        <div id="inv-tpl-chips" class="tpl-chips-row"></div>
         <textarea id="inv-details" placeholder="Тинькофф: 4242 4242 4242 4242&#10;USDT TRC20: TXxx…" rows="3"></textarea>
       </div>
       <button type="submit" class="btn-primary" id="invoice-form-submit">Выставить счёт</button>

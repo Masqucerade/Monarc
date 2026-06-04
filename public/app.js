@@ -274,6 +274,7 @@ function switchView(view) {
 /* ── Invoice Modal ───────────────────────────────────────────────── */
 function openInvoiceModal() {
   document.getElementById('invoice-form').reset();
+  renderTemplateChips();
   showModal('invoice-modal-overlay');
 }
 
@@ -685,6 +686,93 @@ async function clientRemovePackage(id) {
   } catch (e) { toast(e.message, 'error'); }
 }
 
+/* ── Payment Templates ───────────────────────────────────────────── */
+let paymentTemplates = [];
+
+async function loadPaymentTemplates() {
+  try {
+    paymentTemplates = await apiFetch('/api/payment-templates');
+    renderTemplateChips();
+    renderTemplateMgmt();
+  } catch {}
+}
+
+function renderTemplateChips() {
+  const row = document.getElementById('inv-tpl-chips');
+  if (!row) return;
+  if (!paymentTemplates.length) { row.innerHTML = ''; return; }
+  row.innerHTML = paymentTemplates.map(t =>
+    `<button type="button" class="tpl-chip" data-tpl-id="${t.id}">${t.name}</button>`
+  ).join('');
+  row.querySelectorAll('.tpl-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tpl = paymentTemplates.find(t => t.id === parseInt(btn.dataset.tplId));
+      if (tpl) { document.getElementById('inv-details').value = tpl.details; haptic('light'); }
+    });
+  });
+}
+
+function renderTemplateMgmt() {
+  const list = document.getElementById('tpl-list');
+  if (!list) return;
+  if (!paymentTemplates.length) {
+    list.innerHTML = `<div style="font-size:13px;color:var(--text3);padding:4px 0 12px">Нет шаблонов</div>`;
+    return;
+  }
+  list.innerHTML = paymentTemplates.map(t => `
+    <div class="tpl-mgmt-row">
+      <div class="tpl-mgmt-info">
+        <div class="tpl-mgmt-name">${t.name}</div>
+        <div class="tpl-mgmt-preview">${t.details.replace(/\n/g, ' · ')}</div>
+      </div>
+      <button class="btn-tpl-delete" data-tpl-id="${t.id}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button>
+    </div>`).join('');
+  list.querySelectorAll('.btn-tpl-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await apiFetch(`/api/payment-templates/${btn.dataset.tplId}`, { method: 'DELETE' });
+        await loadPaymentTemplates();
+        toast('Шаблон удалён', 'success');
+      } catch (e) { toast(e.message, 'error'); }
+    });
+  });
+}
+
+function setupTemplateMgmt() {
+  const addBtn    = document.getElementById('tpl-add-btn');
+  const addForm   = document.getElementById('tpl-add-form');
+  const cancelBtn = document.getElementById('tpl-cancel-btn');
+  const saveBtn   = document.getElementById('tpl-save-btn');
+  if (!addBtn) return;
+
+  addBtn.addEventListener('click', () => {
+    addForm.style.display = 'flex'; addBtn.style.display = 'none';
+    document.getElementById('tpl-name').focus();
+  });
+  cancelBtn.addEventListener('click', () => {
+    addForm.style.display = 'none'; addBtn.style.display = 'flex';
+    document.getElementById('tpl-name').value = '';
+    document.getElementById('tpl-details').value = '';
+  });
+  saveBtn.addEventListener('click', async () => {
+    const name    = document.getElementById('tpl-name').value.trim();
+    const details = document.getElementById('tpl-details').value.trim();
+    if (!name || !details) { toast('Заполните название и реквизиты', 'error'); return; }
+    saveBtn.disabled = true; saveBtn.textContent = 'Сохраняем…';
+    try {
+      await apiFetch('/api/payment-templates', { method: 'POST', body: JSON.stringify({ name, details }) });
+      await loadPaymentTemplates();
+      addForm.style.display = 'none'; addBtn.style.display = 'flex';
+      document.getElementById('tpl-name').value = '';
+      document.getElementById('tpl-details').value = '';
+      toast('Шаблон сохранён', 'success'); haptic('medium');
+    } catch (e) { toast(e.message, 'error'); }
+    finally { saveBtn.disabled = false; saveBtn.textContent = 'Сохранить'; }
+  });
+}
+
 /* ── Backup ──────────────────────────────────────────────────────── */
 async function downloadBackup() {
   try {
@@ -931,6 +1019,7 @@ async function init() {
     await loadPackages();
     setupCalc();
     setupWarehouseTabs();
+    if (state.user.is_admin) { loadPaymentTemplates(); setupTemplateMgmt(); }
 
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';

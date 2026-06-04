@@ -384,12 +384,15 @@ app.post('/api/admin/restore', authMiddleware, (req, res) => {
   const pkgIds = data.packages.map(p => p.id).filter(Boolean);
   const invIds = (data.invoices || []).map(i => i.id).filter(Boolean);
 
+  const tplIds = (data.payment_templates || []).map(t => t.id).filter(Boolean);
   writeDB({
-    packages:      data.packages,
-    nextId:        data.nextId        || (pkgIds.length ? Math.max(...pkgIds) + 1 : 1),
-    invoices:      data.invoices      || [],
-    nextInvoiceId: data.nextInvoiceId || (invIds.length ? Math.max(...invIds) + 1 : 1),
-    users:         data.users         || [],
+    packages:          data.packages,
+    nextId:            data.nextId            || (pkgIds.length ? Math.max(...pkgIds) + 1 : 1),
+    invoices:          data.invoices          || [],
+    nextInvoiceId:     data.nextInvoiceId     || (invIds.length ? Math.max(...invIds) + 1 : 1),
+    users:             data.users             || [],
+    payment_templates: data.payment_templates || [],
+    nextTemplateId:    data.nextTemplateId    || (tplIds.length ? Math.max(...tplIds) + 1 : 1),
   });
 
   res.json({
@@ -397,6 +400,34 @@ app.post('/api/admin/restore', authMiddleware, (req, res) => {
     packages: data.packages.length,
     invoices: (data.invoices || []).length,
   });
+});
+
+// ── Payment templates ─────────────────────────────────────────────
+
+app.get('/api/payment-templates', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  res.json(readDB().payment_templates || []);
+});
+
+app.post('/api/payment-templates', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const { name, details } = req.body;
+  if (!name?.trim() || !details?.trim()) return res.status(400).json({ error: 'Укажите название и реквизиты' });
+  const db = readDB();
+  if (!db.payment_templates) db.payment_templates = [];
+  if (!db.nextTemplateId) db.nextTemplateId = 1;
+  const tpl = { id: db.nextTemplateId++, name: name.trim(), details: details.trim(), created_at: now() };
+  db.payment_templates.push(tpl);
+  writeDB(db);
+  res.json(tpl);
+});
+
+app.delete('/api/payment-templates/:id', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const db = readDB();
+  db.payment_templates = (db.payment_templates || []).filter(t => t.id !== parseInt(req.params.id));
+  writeDB(db);
+  res.json({ success: true });
 });
 
 // ── Invoice helpers ───────────────────────────────────────────────
