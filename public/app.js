@@ -887,7 +887,6 @@ async function init() {
       document.getElementById('admin-stats').style.display = 'flex';
       document.getElementById('admin-search').style.display = 'flex';
       document.getElementById('admin-backup').style.display = 'block';
-      document.getElementById('packages-title').textContent = 'Все посылки';
 
       // Export info: live table, Google Sheets formula, CSV
       apiFetch('/api/admin/export-info').then(info => {
