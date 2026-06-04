@@ -30,11 +30,20 @@ const STATUS = {
   delivered:  { label: 'Выдано',         cls: 'badge-delivered'  },
 };
 
+const INV_STATUS = {
+  pending:   { label: '⏳ Ожидает оплаты',   cls: 'inv-badge-pending'   },
+  reviewing: { label: '🔔 На проверке',       cls: 'inv-badge-reviewing' },
+  paid:      { label: '✅ Оплачен',           cls: 'inv-badge-paid'      },
+  cancelled: { label: '❌ Отменён',           cls: 'inv-badge-cancelled' },
+};
+
 /* ── State ───────────────────────────────────────────────────────── */
 const state = {
   user: null,
   packages: [],
+  invoices: [],
   currentTab: 'packages',
+  currentView: 'packages', // 'packages' | 'invoices'
   adminFilter: 'all',
   adminSearch: '',
   editingId: null,
@@ -151,6 +160,144 @@ function pkgCard(p, isAdmin) {
       <div style="font-size:11px;color:var(--text3);position:relative;z-index:1">Добавлено: ${fmtDate(p.created_at)}</div>
       ${actionsRow}
     </div>`;
+}
+
+/* ── Invoice Card ────────────────────────────────────────────────── */
+function fmtAmount(amount, currency) {
+  if (currency === 'RUB') return Number(amount).toLocaleString('ru-RU') + ' ₽';
+  if (currency === 'EUR') return Number(amount).toLocaleString('ru-RU') + ' €';
+  return amount + ' USDT';
+}
+
+function invoiceCard(inv, isAdmin) {
+  const st = INV_STATUS[inv.status] || { label: inv.status, cls: '' };
+  const clientRow = isAdmin
+    ? `<div class="inv-client">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        ${inv.client_name || ''}${inv.client_username ? ' @' + inv.client_username : ''}${!inv.client_name && !inv.client_username && inv.client_id ? 'ID: ' + inv.client_id : ''}
+      </div>`
+    : '';
+
+  const detailsBlock = inv.payment_details
+    ? `<div class="inv-details-block">
+        <div class="inv-details-label">📋 Реквизиты</div>
+        <div class="inv-details-text">${inv.payment_details.replace(/\n/g, '<br>')}</div>
+      </div>`
+    : '';
+
+  let actions = '';
+  if (isAdmin) {
+    if (inv.status === 'reviewing') {
+      actions = `<div class="inv-actions">
+        <button class="btn-inv-confirm" data-id="${inv.id}">✅ Подтвердить</button>
+        <button class="btn-inv-cancel" data-id="${inv.id}">❌ Отклонить</button>
+      </div>`;
+    } else if (inv.status !== 'paid') {
+      actions = `<div class="inv-actions">
+        <button class="btn-inv-cancel" data-id="${inv.id}" style="width:100%">Отменить</button>
+      </div>`;
+    }
+    actions += `<button class="btn-inv-delete" data-id="${inv.id}" title="Удалить">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </button>`;
+  } else if (inv.status === 'pending') {
+    actions = `<div class="inv-actions">
+      <button class="btn-inv-paid" data-id="${inv.id}" style="width:100%">Отметить оплаченным</button>
+    </div>`;
+  }
+
+  return `
+    <div class="inv-card inv-${inv.status}">
+      <div class="inv-top">
+        <div>
+          <div class="inv-num">Счёт #${inv.id}</div>
+          <div class="inv-amount">${fmtAmount(inv.amount, inv.currency)}</div>
+        </div>
+        <span class="inv-badge ${st.cls}">${st.label}</span>
+      </div>
+      <div class="inv-desc">${inv.description}</div>
+      ${clientRow}
+      ${detailsBlock}
+      <div class="inv-date">Выставлен: ${fmtDate(inv.created_at)}</div>
+      ${actions}
+    </div>`;
+}
+
+/* ── Invoices Tab ────────────────────────────────────────────────── */
+async function loadInvoices() {
+  const list = document.getElementById('invoices-list');
+  list.innerHTML = skeletonCards(2);
+  try {
+    state.invoices = await apiFetch('/api/invoices');
+    renderInvoices();
+  } catch (e) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">${e.message}</div></div>`;
+  }
+}
+
+function renderInvoices() {
+  const list = document.getElementById('invoices-list');
+  const isAdmin = state.user?.is_admin;
+  if (!state.invoices.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">💰</div>
+      <div class="empty-title">${isAdmin ? 'Счетов нет' : 'Счетов нет'}</div>
+      <div class="empty-sub">${isAdmin ? 'Нажмите «+» чтобы выставить счёт' : 'Когда менеджер выставит счёт — он появится здесь'}</div>
+    </div>`;
+    return;
+  }
+  list.innerHTML = state.invoices.map(inv => invoiceCard(inv, isAdmin)).join('');
+}
+
+/* ── View toggle ─────────────────────────────────────────────────── */
+function switchView(view) {
+  state.currentView = view;
+  document.querySelectorAll('.view-pill').forEach(p => p.classList.toggle('active', p.dataset.view === view));
+
+  const pkgList  = document.getElementById('packages-list');
+  const invList  = document.getElementById('invoices-list');
+  const stats    = document.getElementById('admin-stats');
+  const search   = document.getElementById('admin-search');
+
+  if (view === 'packages') {
+    pkgList.style.display = ''; invList.style.display = 'none';
+    if (state.user?.is_admin) { stats.style.display = 'flex'; search.style.display = 'flex'; }
+  } else {
+    pkgList.style.display = 'none'; invList.style.display = '';
+    if (stats) stats.style.display = 'none';
+    if (search) search.style.display = 'none';
+    loadInvoices();
+  }
+  haptic('light');
+}
+
+/* ── Invoice Modal ───────────────────────────────────────────────── */
+function openInvoiceModal() {
+  document.getElementById('invoice-form').reset();
+  showModal('invoice-modal-overlay');
+}
+
+async function handleInvoiceFormSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('invoice-form-submit');
+  btn.disabled = true; btn.textContent = 'Отправляем…';
+  try {
+    await apiFetch('/api/invoices', {
+      method: 'POST',
+      body: JSON.stringify({
+        client:          document.getElementById('inv-client').value.trim() || undefined,
+        amount:          parseFloat(document.getElementById('inv-amount').value),
+        currency:        document.getElementById('inv-currency').value,
+        description:     document.getElementById('inv-description').value.trim(),
+        payment_details: document.getElementById('inv-details').value.trim() || undefined,
+      }),
+    });
+    toast('Счёт выставлен', 'success');
+    haptic('medium');
+    hideModal('invoice-modal-overlay');
+    loadInvoices();
+  } catch (err) { toast(err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Выставить счёт'; }
 }
 
 /* ── Skeleton cards ──────────────────────────────────────────────── */
@@ -611,8 +758,62 @@ document.addEventListener('click', e => {
   const nav = e.target.closest('.nav-item');
   if (nav) { switchTab(nav.dataset.tab); return; }
 
-  if (e.target.closest('#btn-add'))        { openAddModal(); return; }
+  const viewPill = e.target.closest('.view-pill');
+  if (viewPill) { switchView(viewPill.dataset.view); return; }
+
+  if (e.target.closest('#btn-add')) {
+    state.currentView === 'invoices' ? openInvoiceModal() : openAddModal();
+    return;
+  }
   if (e.target.closest('#btn-add-client')) { showModal('client-modal-overlay'); return; }
+
+  const invPaidBtn = e.target.closest('.btn-inv-paid');
+  if (invPaidBtn) {
+    const id = parseInt(invPaidBtn.dataset.id);
+    const msg = 'Отметить счёт как оплаченный?';
+    const doIt = async () => {
+      try {
+        await apiFetch(`/api/invoices/${id}/mark-paid`, { method: 'POST' });
+        toast('Оплата отмечена — ожидайте подтверждения', 'success');
+        haptic('medium'); loadInvoices();
+      } catch (err) { toast(err.message, 'error'); }
+    };
+    if (tg?.showConfirm) tg.showConfirm(msg, ok => { if (ok) doIt(); });
+    else if (confirm(msg)) doIt();
+    return;
+  }
+
+  const invConfirmBtn = e.target.closest('.btn-inv-confirm');
+  if (invConfirmBtn) {
+    try {
+      await apiFetch(`/api/invoices/${parseInt(invConfirmBtn.dataset.id)}/confirm`, { method: 'POST' });
+      toast('Оплата подтверждена', 'success'); haptic('medium'); loadInvoices();
+    } catch (err) { toast(err.message, 'error'); }
+    return;
+  }
+
+  const invCancelBtn = e.target.closest('.btn-inv-cancel');
+  if (invCancelBtn) {
+    try {
+      await apiFetch(`/api/invoices/${parseInt(invCancelBtn.dataset.id)}/cancel`, { method: 'POST' });
+      toast('Счёт отменён', 'success'); loadInvoices();
+    } catch (err) { toast(err.message, 'error'); }
+    return;
+  }
+
+  const invDeleteBtn = e.target.closest('.btn-inv-delete');
+  if (invDeleteBtn) {
+    const doDelete = async () => {
+      try {
+        await apiFetch(`/api/invoices/${parseInt(invDeleteBtn.dataset.id)}`, { method: 'DELETE' });
+        toast('Счёт удалён', 'success'); loadInvoices();
+      } catch (err) { toast(err.message, 'error'); }
+    };
+    const msg = 'Удалить счёт?';
+    if (tg?.showConfirm) tg.showConfirm(msg, ok => { if (ok) doDelete(); });
+    else if (confirm(msg)) doDelete();
+    return;
+  }
 
   const editBtn = e.target.closest('.btn-edit-status');
   if (editBtn) {
@@ -629,6 +830,7 @@ document.addEventListener('click', e => {
 
   if (e.target.closest('#modal-close') || e.target.id === 'modal-overlay')               { hideModal('modal-overlay'); return; }
   if (e.target.closest('#client-modal-close') || e.target.id === 'client-modal-overlay') { hideModal('client-modal-overlay'); return; }
+  if (e.target.closest('#invoice-modal-close') || e.target.id === 'invoice-modal-overlay') { hideModal('invoice-modal-overlay'); return; }
 
   const chip = e.target.closest('.stat-chip');
   if (chip) {
@@ -648,6 +850,7 @@ document.getElementById('admin-search-input')?.addEventListener('input', e => {
 });
 document.getElementById('pkg-form').addEventListener('submit', handleFormSubmit);
 document.getElementById('client-pkg-form').addEventListener('submit', handleClientFormSubmit);
+document.getElementById('invoice-form').addEventListener('submit', handleInvoiceFormSubmit);
 
 /* ── Init ────────────────────────────────────────────────────────── */
 async function init() {

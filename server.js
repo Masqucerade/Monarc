@@ -378,6 +378,161 @@ app.post('/api/admin/restore', authMiddleware, (req, res) => {
   res.json({ success: true, count: data.packages.length });
 });
 
+// ── Invoice helpers ───────────────────────────────────────────────
+
+function formatAmount(amount, currency) {
+  if (currency === 'RUB') return Number(amount).toLocaleString('ru-RU') + ' ₽';
+  if (currency === 'EUR') return Number(amount).toLocaleString('ru-RU') + ' €';
+  return amount + ' USDT';
+}
+
+async function notifyClientInvoice(clientId, inv) {
+  if (!BOT_TOKEN || !clientId) return;
+  const WEBAPP_URL = process.env.WEBAPP_URL;
+  const details = inv.payment_details ? `\n\n📋 <b>Реквизиты:</b>\n${inv.payment_details}` : '';
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: clientId,
+        text: `💰 <b>Новый счёт #${inv.id}</b>\n\n${inv.description}\nСумма: <b>${formatAmount(inv.amount, inv.currency)}</b>${details}\n\nОткройте приложение для подтверждения оплаты`,
+        parse_mode: 'HTML',
+        reply_markup: WEBAPP_URL ? { inline_keyboard: [[{ text: '📦 Открыть Monarc', web_app: { url: WEBAPP_URL } }]] } : undefined,
+      }),
+    });
+  } catch (err) { console.error('Invoice notify error:', err.message); }
+}
+
+// ── Invoice routes ────────────────────────────────────────────────
+
+// List invoices
+app.get('/api/invoices', authMiddleware, (req, res) => {
+  const db = readDB();
+  const invoices = db.invoices || [];
+  const sorted = [...invoices].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  if (req.user.is_admin) return res.json(sorted);
+  const own = sorted.filter(inv =>
+    inv.client_id === req.user.id ||
+    (inv.client_username && inv.client_username.toLowerCase() === (req.user.username || '').toLowerCase())
+  );
+  res.json(own);
+});
+
+// Create invoice (admin)
+app.post('/api/invoices', authMiddleware, async (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const { client, amount, currency, description, payment_details } = req.body;
+  if (!amount || parseFloat(amount) <= 0) return res.status(400).json({ error: 'Укажите сумму' });
+  if (!description?.trim()) return res.status(400).json({ error: 'Укажите за что' });
+
+  const db = readDB();
+  if (!db.invoices) db.invoices = [];
+  if (!db.nextInvoiceId) db.nextInvoiceId = 1;
+
+  // Resolve client: could be @username or numeric id
+  const isUsername = client && client.toString().startsWith('@');
+  const clientUsername = isUsername ? client.replace('@', '') : null;
+  const clientId = !isUsername && client ? String(client) : null;
+  const foundUser = (db.users || []).find(u =>
+    (clientId && u.id === clientId) ||
+    (clientUsername && (u.username || '').toLowerCase() === clientUsername.toLowerCase())
+  );
+
+  const inv = {
+    id: db.nextInvoiceId++,
+    client_id: clientId || foundUser?.id || null,
+    client_username: clientUsername || foundUser?.username || null,
+    client_name: foundUser?.name || null,
+    amount: parseFloat(amount),
+    currency: currency || 'RUB',
+    description: description.trim(),
+    payment_details: payment_details?.trim() || null,
+    status: 'pending',
+    created_at: now(), updated_at: now(),
+    paid_at: null, confirmed_at: null,
+  };
+
+  db.invoices.push(inv);
+  writeDB(db);
+
+  const notifyId = resolveClientId(inv.client_id, inv.client_username, db);
+  if (notifyId) await notifyClientInvoice(notifyId, inv);
+
+  res.json(inv);
+});
+
+// Client marks as paid
+app.post('/api/invoices/:id/mark-paid', authMiddleware, async (req, res) => {
+  const db = readDB();
+  const inv = (db.invoices || []).find(i => i.id === parseInt(req.params.id));
+  if (!inv) return res.status(404).json({ error: 'Счёт не найден' });
+  if (inv.status !== 'pending') return res.status(400).json({ error: 'Счёт уже обработан' });
+
+  const isOwner = inv.client_id === req.user.id ||
+    (inv.client_username && inv.client_username.toLowerCase() === (req.user.username || '').toLowerCase());
+  if (!isOwner && !req.user.is_admin) return res.status(403).json({ error: 'Нет доступа' });
+
+  inv.status = 'reviewing';
+  inv.paid_at = now();
+  inv.updated_at = now();
+  writeDB(db);
+
+  notifyAdmin(
+    `💰 <b>Клиент отметил оплату</b>\n\n` +
+    `Счёт #${inv.id}: <b>${formatAmount(inv.amount, inv.currency)}</b>\n` +
+    `${inv.description}\n` +
+    `Клиент: ${inv.client_name || ''}${inv.client_username ? ' @' + inv.client_username : ''}`
+  );
+  res.json(inv);
+});
+
+// Admin confirms payment
+app.post('/api/invoices/:id/confirm', authMiddleware, async (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const db = readDB();
+  const inv = (db.invoices || []).find(i => i.id === parseInt(req.params.id));
+  if (!inv) return res.status(404).json({ error: 'Счёт не найден' });
+
+  inv.status = 'paid';
+  inv.confirmed_at = now();
+  inv.updated_at = now();
+  writeDB(db);
+
+  const notifyId = resolveClientId(inv.client_id, inv.client_username, db);
+  if (notifyId && BOT_TOKEN) {
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: notifyId,
+        text: `✅ <b>Оплата подтверждена!</b>\n\nСчёт #${inv.id}: ${formatAmount(inv.amount, inv.currency)}\n${inv.description}`,
+        parse_mode: 'HTML',
+      }),
+    }).catch(() => {});
+  }
+  res.json(inv);
+});
+
+// Admin cancels invoice
+app.post('/api/invoices/:id/cancel', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const db = readDB();
+  const inv = (db.invoices || []).find(i => i.id === parseInt(req.params.id));
+  if (!inv) return res.status(404).json({ error: 'Счёт не найден' });
+  inv.status = 'cancelled';
+  inv.updated_at = now();
+  writeDB(db);
+  res.json(inv);
+});
+
+// Admin deletes invoice
+app.delete('/api/invoices/:id', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const db = readDB();
+  db.invoices = (db.invoices || []).filter(i => i.id !== parseInt(req.params.id));
+  writeDB(db);
+  res.json({ success: true });
+});
+
 // Stats
 app.get('/api/stats', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
