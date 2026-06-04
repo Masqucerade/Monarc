@@ -380,8 +380,23 @@ app.post('/api/admin/restore', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
   const { data } = req.body;
   if (!data || !Array.isArray(data.packages)) return res.status(400).json({ error: 'Неверный формат файла' });
-  writeDB({ packages: data.packages, nextId: data.nextId || (Math.max(0, ...data.packages.map(p => p.id)) + 1) });
-  res.json({ success: true, count: data.packages.length });
+
+  const pkgIds = data.packages.map(p => p.id).filter(Boolean);
+  const invIds = (data.invoices || []).map(i => i.id).filter(Boolean);
+
+  writeDB({
+    packages:      data.packages,
+    nextId:        data.nextId        || (pkgIds.length ? Math.max(...pkgIds) + 1 : 1),
+    invoices:      data.invoices      || [],
+    nextInvoiceId: data.nextInvoiceId || (invIds.length ? Math.max(...invIds) + 1 : 1),
+    users:         data.users         || [],
+  });
+
+  res.json({
+    success: true,
+    packages: data.packages.length,
+    invoices: (data.invoices || []).length,
+  });
 });
 
 // ── Invoice helpers ───────────────────────────────────────────────

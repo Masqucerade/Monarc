@@ -715,8 +715,8 @@ async function restoreBackup(file) {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
-    await apiFetch('/api/admin/restore', { method: 'POST', body: JSON.stringify({ data }) });
-    toast(`Восстановлено ${data.packages?.length || 0} посылок`, 'success');
+    const result = await apiFetch('/api/admin/restore', { method: 'POST', body: JSON.stringify({ data }) });
+    toast(`Восстановлено: ${result.packages} посылок, ${result.invoices} счетов`, 'success');
     loadPackages();
   } catch (e) { toast('Ошибка восстановления — проверьте файл', 'error'); }
 }
