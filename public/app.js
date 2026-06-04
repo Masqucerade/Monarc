@@ -272,10 +272,10 @@ function switchView(view) {
 }
 
 /* ── Invoice Modal ───────────────────────────────────────────────── */
-function openInvoiceModal() {
+async function openInvoiceModal() {
   document.getElementById('invoice-form').reset();
-  renderTemplateChips();
   showModal('invoice-modal-overlay');
+  await loadPaymentTemplates(); // гарантируем свежие чипы
 }
 
 async function handleInvoiceFormSubmit(e) {
@@ -804,7 +804,7 @@ async function restoreBackup(file) {
     const text = await file.text();
     const data = JSON.parse(text);
     const result = await apiFetch('/api/admin/restore', { method: 'POST', body: JSON.stringify({ data }) });
-    toast(`Восстановлено: ${result.packages} посылок, ${result.invoices} счетов`, 'success');
+    toast(`Восстановлено: ${result.packages} посылок, ${result.invoices} счетов, ${result.templates} шаблонов`, 'success');
     loadPackages();
   } catch (e) { toast('Ошибка восстановления — проверьте файл', 'error'); }
 }

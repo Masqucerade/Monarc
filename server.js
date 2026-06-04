@@ -397,8 +397,9 @@ app.post('/api/admin/restore', authMiddleware, (req, res) => {
 
   res.json({
     success: true,
-    packages: data.packages.length,
-    invoices: (data.invoices || []).length,
+    packages:  data.packages.length,
+    invoices:  (data.invoices || []).length,
+    templates: (data.payment_templates || []).length,
   });
 });
 
