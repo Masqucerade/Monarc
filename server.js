@@ -9,7 +9,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_ID = process.env.ADMIN_ID || '885394476';
-const DB_FILE = path.join(__dirname, 'data.json');
+// На Railway используем /data (Volume), локально — рядом с сервером
+const DB_FILE = process.env.NODE_ENV === 'production'
+  ? '/data/data.json'
+  : path.join(__dirname, 'data.json');
 
 // Deterministic export token derived from secrets (no extra env var needed)
 const EXPORT_TOKEN = process.env.EXPORT_TOKEN ||
