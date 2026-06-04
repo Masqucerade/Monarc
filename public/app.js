@@ -125,6 +125,28 @@ function pkgCard(p, isAdmin) {
       </div>`
     : '';
 
+  const DLABELS = { yandex: 'Яндекс Доставка', cdek: 'СДЭК', pochta: 'Почта РФ' };
+  const dr = p.delivery_request;
+  const deliveryBlock = !isPending
+    ? isAdmin
+      ? dr?.status === 'filled'
+        ? `<div class="pkg-delivery-info">
+            <div class="pkg-delivery-title">📬 Данные доставки</div>
+            <div class="pkg-delivery-type">${DLABELS[dr.delivery_type] || dr.delivery_type}</div>
+            <div class="pkg-delivery-row">${dr.pickup_address}</div>
+            <div class="pkg-delivery-row">${dr.phone}</div>
+            ${dr.full_name ? `<div class="pkg-delivery-row">${dr.full_name}</div>` : ''}
+          </div>`
+        : dr?.status === 'pending'
+          ? `<div class="pkg-delivery-pending">⏳ Ожидаем данные от клиента</div>`
+          : `<button class="btn-req-delivery" data-id="${p.id}">📬 Запросить доставку</button>`
+      : dr?.status === 'pending'
+        ? `<button class="btn-fill-delivery" data-id="${p.id}">📬 Указать адрес доставки</button>`
+        : dr?.status === 'filled'
+          ? `<div class="pkg-delivery-done">✅ Данные доставки отправлены</div>`
+          : ''
+    : '';
+
   const actionsRow = isAdmin
     ? `<div class="pkg-actions">
         <button class="btn-edit-status" data-id="${p.id}">Изменить / Редактировать</button>
@@ -158,6 +180,7 @@ function pkgCard(p, isAdmin) {
       ${detailsRow}
       ${clientRow}
       ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;position:relative;z-index:1">${p.description}</div>` : ''}
+      ${deliveryBlock}
       <div style="font-size:11px;color:var(--text3);position:relative;z-index:1">Добавлено: ${fmtDate(p.created_at)}</div>
       ${actionsRow}
     </div>`;
@@ -753,6 +776,109 @@ async function clientRemovePackage(id) {
   } catch (e) { toast(e.message, 'error'); }
 }
 
+/* ── Delivery Modal ──────────────────────────────────────────────── */
+let addressTemplates = [];
+let currentDeliveryType = 'yandex';
+
+async function loadAddressTemplates() {
+  try {
+    addressTemplates = await apiFetch('/api/address-templates');
+    renderAddrChips();
+  } catch {}
+}
+
+function renderAddrChips() {
+  const row = document.getElementById('addr-tpl-chips');
+  const wrap = document.getElementById('addr-tpl-wrap');
+  if (!row || !wrap) return;
+  if (!addressTemplates.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  row.innerHTML = addressTemplates.map(t =>
+    `<button type="button" class="tpl-chip" data-addr-id="${t.id}">${t.name}</button>`
+  ).join('');
+  row.querySelectorAll('.tpl-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = addressTemplates.find(a => a.id === parseInt(btn.dataset.addrId));
+      if (!t) return;
+      // Set type pill
+      currentDeliveryType = t.delivery_type;
+      document.querySelectorAll('.delivery-type-pill').forEach(p => {
+        p.classList.toggle('active', p.dataset.type === t.delivery_type);
+      });
+      updateDeliveryNameWrap(t.delivery_type);
+      document.getElementById('delivery-address').value = t.pickup_address;
+      document.getElementById('delivery-phone').value = t.phone;
+      document.getElementById('delivery-fullname').value = t.full_name || '';
+      haptic('light');
+    });
+  });
+}
+
+function updateDeliveryNameWrap(type) {
+  const wrap = document.getElementById('delivery-name-wrap');
+  if (wrap) wrap.style.display = (type === 'yandex') ? 'none' : 'block';
+}
+
+function openDeliveryModal(pkgId) {
+  const form = document.getElementById('delivery-form');
+  form.reset();
+  document.getElementById('delivery-pkg-id').value = pkgId;
+  currentDeliveryType = 'yandex';
+  document.querySelectorAll('.delivery-type-pill').forEach((p, i) => p.classList.toggle('active', i === 0));
+  updateDeliveryNameWrap('yandex');
+  document.getElementById('delivery-tpl-name').style.display = 'none';
+  showModal('delivery-modal-overlay');
+  loadAddressTemplates();
+}
+
+function setupDeliveryModal() {
+  // Type pills
+  document.querySelectorAll('.delivery-type-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.delivery-type-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentDeliveryType = btn.dataset.type;
+      updateDeliveryNameWrap(currentDeliveryType);
+    });
+  });
+  // Save as template checkbox
+  document.getElementById('delivery-save-check')?.addEventListener('change', e => {
+    document.getElementById('delivery-tpl-name').style.display = e.target.checked ? 'block' : 'none';
+  });
+  // Form submit
+  document.getElementById('delivery-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('delivery-submit');
+    btn.disabled = true; btn.textContent = 'Отправляем…';
+    const pkgId = document.getElementById('delivery-pkg-id').value;
+    const pickup_address = document.getElementById('delivery-address').value.trim();
+    const phone = document.getElementById('delivery-phone').value.trim();
+    const full_name = document.getElementById('delivery-fullname').value.trim();
+    const saveAsTpl = document.getElementById('delivery-save-check').checked;
+    const tplName = document.getElementById('delivery-tpl-name').value.trim();
+
+    try {
+      await apiFetch(`/api/packages/${pkgId}/delivery-response`, {
+        method: 'POST',
+        body: JSON.stringify({ delivery_type: currentDeliveryType, pickup_address, phone, full_name }),
+      });
+
+      if (saveAsTpl && tplName) {
+        await apiFetch('/api/address-templates', {
+          method: 'POST',
+          body: JSON.stringify({ name: tplName, delivery_type: currentDeliveryType, pickup_address, phone, full_name }),
+        }).catch(() => {});
+      }
+
+      toast('Данные отправлены!', 'success');
+      haptic('medium');
+      hideModal('delivery-modal-overlay');
+      loadPackages();
+    } catch (err) { toast(err.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Отправить'; }
+  });
+}
+
 /* ── Client Templates ────────────────────────────────────────────── */
 let clientTemplates = [];
 
@@ -1085,6 +1211,21 @@ document.addEventListener('click', async e => {
   if (e.target.closest('#modal-close') || e.target.id === 'modal-overlay')               { hideModal('modal-overlay'); return; }
   if (e.target.closest('#client-modal-close') || e.target.id === 'client-modal-overlay') { hideModal('client-modal-overlay'); return; }
   if (e.target.closest('#invoice-modal-close') || e.target.id === 'invoice-modal-overlay') { hideModal('invoice-modal-overlay'); return; }
+  if (e.target.closest('#delivery-modal-close') || e.target.id === 'delivery-modal-overlay') { hideModal('delivery-modal-overlay'); return; }
+
+  const reqDelivery = e.target.closest('.btn-req-delivery');
+  if (reqDelivery) {
+    try {
+      await apiFetch(`/api/packages/${reqDelivery.dataset.id}/request-delivery`, { method: 'POST' });
+      toast('Запрос отправлен клиенту', 'success');
+      haptic('medium');
+      loadPackages();
+    } catch (err) { toast(err.message, 'error'); }
+    return;
+  }
+
+  const fillDelivery = e.target.closest('.btn-fill-delivery');
+  if (fillDelivery) { openDeliveryModal(fillDelivery.dataset.id); return; }
 
   const chip = e.target.closest('.stat-chip');
   if (chip) {
@@ -1187,6 +1328,7 @@ async function init() {
     loadPackages();
     setupCalc();
     setupWarehouseTabs();
+    setupDeliveryModal();
     if (state.user.is_admin) {
       loadPaymentTemplates(); setupTemplateMgmt();
       loadClientTemplates();  setupClientMgmt();

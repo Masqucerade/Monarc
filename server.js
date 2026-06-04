@@ -388,18 +388,21 @@ app.post('/api/admin/restore', authMiddleware, (req, res) => {
   const pkgIds = data.packages.map(p => p.id).filter(Boolean);
   const invIds = (data.invoices || []).map(i => i.id).filter(Boolean);
 
-  const tplIds = (data.payment_templates || []).map(t => t.id).filter(Boolean);
-  const ctIds  = (data.client_templates  || []).map(c => c.id).filter(Boolean);
+  const tplIds  = (data.payment_templates  || []).map(t => t.id).filter(Boolean);
+  const ctIds   = (data.client_templates   || []).map(c => c.id).filter(Boolean);
+  const addrIds = (data.address_templates  || []).map(a => a.id).filter(Boolean);
   writeDB({
     packages:           data.packages,
-    nextId:             data.nextId             || (pkgIds.length ? Math.max(...pkgIds) + 1 : 1),
+    nextId:             data.nextId             || (pkgIds.length  ? Math.max(...pkgIds)  + 1 : 1),
     invoices:           data.invoices           || [],
-    nextInvoiceId:      data.nextInvoiceId      || (invIds.length ? Math.max(...invIds) + 1 : 1),
+    nextInvoiceId:      data.nextInvoiceId      || (invIds.length  ? Math.max(...invIds)  + 1 : 1),
     users:              data.users              || [],
     payment_templates:  data.payment_templates  || [],
-    nextTemplateId:     data.nextTemplateId     || (tplIds.length ? Math.max(...tplIds) + 1 : 1),
+    nextTemplateId:     data.nextTemplateId     || (tplIds.length  ? Math.max(...tplIds)  + 1 : 1),
     client_templates:   data.client_templates   || [],
-    nextClientTplId:    data.nextClientTplId    || (ctIds.length  ? Math.max(...ctIds)  + 1 : 1),
+    nextClientTplId:    data.nextClientTplId    || (ctIds.length   ? Math.max(...ctIds)   + 1 : 1),
+    address_templates:  data.address_templates  || [],
+    nextAddressTplId:   data.nextAddressTplId   || (addrIds.length ? Math.max(...addrIds) + 1 : 1),
   });
 
   res.json({
@@ -442,6 +445,114 @@ app.delete('/api/client-templates/:id', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
   const db = readDB();
   db.client_templates = (db.client_templates || []).filter(c => c.id !== parseInt(req.params.id));
+  writeDB(db);
+  res.json({ success: true });
+});
+
+// ── Delivery request ─────────────────────────────────────────────
+
+const DELIVERY_LABELS = { yandex: 'Яндекс Доставка', cdek: 'СДЭК', pochta: 'Почта РФ' };
+
+// Admin: request delivery info from client
+app.post('/api/packages/:id/request-delivery', authMiddleware, async (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const db = readDB();
+  const idx = db.packages.findIndex(p => p.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ error: 'Посылка не найдена' });
+  const pkg = db.packages[idx];
+  pkg.delivery_request = { status: 'pending', requested_at: now() };
+  pkg.updated_at = now();
+  db.packages[idx] = pkg;
+  writeDB(db);
+  const notifyId = resolveClientId(pkg.client_id, pkg.client_username, db);
+  if (notifyId && BOT_TOKEN) {
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: notifyId,
+        text: `📬 <b>Требуются данные для доставки</b>\n\nПосылка: <code>${pkg.tracking_number}</code>${pkg.item_name ? '\n' + pkg.item_name : ''}\n\nОткройте приложение и укажите адрес ПВЗ, телефон и ФИО`,
+        parse_mode: 'HTML',
+      }),
+    }).catch(() => {});
+  }
+  res.json(enrichPackage(pkg));
+});
+
+// Client: fill delivery info
+app.post('/api/packages/:id/delivery-response', authMiddleware, async (req, res) => {
+  const db = readDB();
+  const idx = db.packages.findIndex(p => p.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ error: 'Посылка не найдена' });
+  const pkg = db.packages[idx];
+  const isOwner = pkg.client_id === req.user.id ||
+    (pkg.client_username && pkg.client_username.toLowerCase() === (req.user.username || '').toLowerCase());
+  if (!isOwner && !req.user.is_admin) return res.status(403).json({ error: 'Нет доступа' });
+  const { delivery_type, pickup_address, phone, full_name } = req.body;
+  if (!delivery_type || !pickup_address?.trim() || !phone?.trim()) {
+    return res.status(400).json({ error: 'Укажите тип доставки, адрес и телефон' });
+  }
+  pkg.delivery_request = {
+    ...pkg.delivery_request,
+    status: 'filled',
+    delivery_type,
+    pickup_address: pickup_address.trim(),
+    phone: phone.trim(),
+    full_name: full_name?.trim() || null,
+    filled_at: now(),
+  };
+  pkg.updated_at = now();
+  db.packages[idx] = pkg;
+  writeDB(db);
+  notifyAdmin(
+    `📬 <b>Клиент заполнил данные доставки</b>\n\n` +
+    `Посылка: <code>${pkg.tracking_number}</code>${pkg.item_name ? ' · ' + pkg.item_name : ''}\n` +
+    `Способ: ${DELIVERY_LABELS[delivery_type] || delivery_type}\n` +
+    `Адрес ПВЗ: ${pickup_address}\n` +
+    `Телефон: ${phone}` +
+    (full_name ? `\nФИО: ${full_name}` : '')
+  );
+  res.json(enrichPackage(pkg));
+});
+
+// ── Address templates ─────────────────────────────────────────────
+
+app.get('/api/address-templates', authMiddleware, (req, res) => {
+  const db = readDB();
+  const all = db.address_templates || [];
+  res.json(req.user.is_admin ? all : all.filter(t => t.owner_id === req.user.id));
+});
+
+app.post('/api/address-templates', authMiddleware, (req, res) => {
+  const { name, delivery_type, pickup_address, phone, full_name } = req.body;
+  if (!name?.trim() || !pickup_address?.trim() || !phone?.trim()) {
+    return res.status(400).json({ error: 'Укажите название, адрес и телефон' });
+  }
+  const db = readDB();
+  if (!db.address_templates) db.address_templates = [];
+  if (!db.nextAddressTplId) db.nextAddressTplId = 1;
+  const tpl = {
+    id: db.nextAddressTplId++,
+    owner_id: req.user.id,
+    name: name.trim(),
+    delivery_type: delivery_type || 'cdek',
+    pickup_address: pickup_address.trim(),
+    phone: phone.trim(),
+    full_name: full_name?.trim() || null,
+    created_at: now(),
+  };
+  db.address_templates.push(tpl);
+  writeDB(db);
+  res.json(tpl);
+});
+
+app.delete('/api/address-templates/:id', authMiddleware, (req, res) => {
+  const db = readDB();
+  const idx = (db.address_templates || []).findIndex(t => t.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ error: 'Не найдено' });
+  if (db.address_templates[idx].owner_id !== req.user.id && !req.user.is_admin) {
+    return res.status(403).json({ error: 'Нет доступа' });
+  }
+  db.address_templates.splice(idx, 1);
   writeDB(db);
   res.json({ success: true });
 });

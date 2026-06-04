@@ -581,6 +581,62 @@
   </div>
 </div>
 
+<!-- ─── Delivery Modal (client) ─────────────────────────────────── -->
+<div id="delivery-modal-overlay" class="modal-overlay" style="display:none">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h3>Данные для доставки</h3>
+      <button class="modal-close" id="delivery-modal-close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="delivery-form" class="modal-form">
+      <input type="hidden" id="delivery-pkg-id" />
+
+      <!-- Saved address chips -->
+      <div class="form-group" id="addr-tpl-wrap" style="display:none">
+        <label>Мои адреса</label>
+        <div id="addr-tpl-chips" class="tpl-chips-row"></div>
+      </div>
+
+      <!-- Delivery type -->
+      <div class="form-group">
+        <label>Способ доставки</label>
+        <div class="delivery-type-pills">
+          <button type="button" class="delivery-type-pill active" data-type="yandex">Яндекс</button>
+          <button type="button" class="delivery-type-pill" data-type="cdek">СДЭК</button>
+          <button type="button" class="delivery-type-pill" data-type="pochta">Почта РФ</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Адрес пункта выдачи *</label>
+        <input type="text" id="delivery-address" placeholder="г. Москва, ул. Ленина 1, ПВЗ №3" required autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label>Номер телефона *</label>
+        <input type="tel" id="delivery-phone" placeholder="+7 900 000 0000" required autocomplete="off" />
+      </div>
+      <div class="form-group" id="delivery-name-wrap">
+        <label>ФИО *</label>
+        <input type="text" id="delivery-fullname" placeholder="Иванов Иван Иванович" autocomplete="off" />
+      </div>
+
+      <!-- Save as template -->
+      <div class="form-group">
+        <label class="delivery-save-row">
+          <input type="checkbox" id="delivery-save-check" />
+          <span>Сохранить как шаблон</span>
+        </label>
+        <input type="text" id="delivery-tpl-name" class="delivery-tpl-name-input" placeholder="Название (напр. СДЭК у метро)" style="display:none" autocomplete="off" />
+      </div>
+
+      <button type="submit" class="btn-primary" id="delivery-submit">Отправить</button>
+    </form>
+  </div>
+</div>
+
 <!-- ─── Toast ──────────────────────────────────────────────────── -->
 <div id="toast" class="toast"></div>
 
