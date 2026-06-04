@@ -751,7 +751,7 @@ function copyText(text) {
 }
 
 /* ── Events ──────────────────────────────────────────────────────── */
-document.addEventListener('click', e => {
+document.addEventListener('click', async e => {
   if (e.target.closest('[data-copy]')) { copyText(e.target.closest('[data-copy]').dataset.copy); return; }
   if (e.target.closest('#copy-my-id')) { copyText(document.getElementById('my-id-value').textContent); return; }
 
