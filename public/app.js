@@ -99,6 +99,22 @@ function statusBadge(status) {
   return `<span class="status-badge ${s.cls}">${s.label}</span>`;
 }
 
+/* ── Photo lightbox ──────────────────────────────────────────────── */
+function openPhotoLightbox(src, label) {
+  const lb = document.getElementById('photo-lightbox');
+  document.getElementById('photo-lb-img').src = src;
+  document.getElementById('photo-lb-label').textContent = label || '';
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  haptic('light');
+}
+function closePhotoLightbox() {
+  const lb = document.getElementById('photo-lightbox');
+  lb.style.display = 'none';
+  document.getElementById('photo-lb-img').src = '';
+  document.body.style.overflow = '';
+}
+
 /* ── Image helpers ───────────────────────────────────────────────── */
 function resizeImage(file, maxW, maxH, quality) {
   return new Promise((resolve, reject) => {
@@ -142,12 +158,22 @@ function pkgCard(p, isAdmin) {
         <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${total > 0 ? '~' + fmt(total) + ' ₽' : '—'}</div></div>
       </div>`;
 
-  // Фото товара — только отображение (кнопка загрузки переехала в actionsRow)
+  // Фото товара: админ видит сразу, клиент — кнопку «Посмотреть фото»
   const photoBlock = (!isPending && p.photo_url)
-    ? `<div class="pkg-photo-wrap">
-        <img src="${p.photo_url}" class="pkg-photo-img" alt="Фото товара" loading="lazy" />
-        ${isAdmin ? `<button class="btn-photo-delete" data-id="${p.id}" title="Удалить фото">✕</button>` : ''}
-      </div>`
+    ? isAdmin
+      ? `<div class="pkg-photo-wrap">
+          <img src="${p.photo_url}" class="pkg-photo-img" alt="Фото товара" loading="lazy" />
+          <button class="btn-photo-delete" data-id="${p.id}" title="Удалить фото">✕</button>
+        </div>`
+      : `<button class="btn-view-photo" data-photo="${p.photo_url}"
+            data-label="${p.tracking_number}${p.item_name ? ' · ' + p.item_name : ''}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <path d="m21 15-5-5L5 21"/>
+          </svg>
+          📸 Посмотреть фото товара
+        </button>`
     : '';
 
   // Иконка-кнопка прикрепить/заменить фото (только для админа, не-pending)
@@ -1270,6 +1296,16 @@ document.addEventListener('click', async e => {
     if (tg?.showConfirm) tg.showConfirm(msg, ok => { if (ok) doDelete(); });
     else if (confirm(msg)) doDelete();
     return;
+  }
+
+  const viewPhotoBtn = e.target.closest('.btn-view-photo');
+  if (viewPhotoBtn) {
+    openPhotoLightbox(viewPhotoBtn.dataset.photo, viewPhotoBtn.dataset.label);
+    return;
+  }
+
+  if (e.target.closest('#photo-lb-close') || e.target.classList.contains('photo-lb-bg')) {
+    closePhotoLightbox(); return;
   }
 
   const photoUploadBtn = e.target.closest('.btn-photo-icon');

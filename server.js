@@ -385,6 +385,37 @@ app.post('/api/packages/:id/photo', authMiddleware, (req, res) => {
   pkg.updated_at = now();
   db.packages[idx] = pkg;
   writeDB(db);
+
+  // Уведомляем клиента
+  const notifyId = resolveClientId(pkg.client_id, pkg.client_username, db);
+  if (notifyId && BOT_TOKEN) {
+    const base = process.env.WEBAPP_URL || '';
+    const caption =
+      `📸 <b>Фото вашего товара</b>\n\n` +
+      `Трек: <code>${pkg.tracking_number}</code>` +
+      (pkg.item_name ? `\n${escHtml(pkg.item_name)}` : '') +
+      `\n\nОткройте приложение Monarc чтобы посмотреть`;
+    // Пробуем отправить само фото, иначе — текст
+    const photoUrl = base ? `${base}${pkg.photo_url}` : null;
+    (async () => {
+      try {
+        if (photoUrl) {
+          const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: notifyId, photo: photoUrl, caption, parse_mode: 'HTML' }),
+          });
+          const d = await r.json();
+          if (d.ok) return;
+          console.warn('[photo notify] sendPhoto failed, fallback to text:', d.description);
+        }
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: notifyId, text: caption, parse_mode: 'HTML' }),
+        });
+      } catch (err) { console.error('[photo notify] Error:', err.message); }
+    })();
+  }
+
   res.json(enrichPackage(pkg));
 });
 
