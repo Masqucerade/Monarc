@@ -678,6 +678,8 @@ app.post('/api/invoices', authMiddleware, async (req, res) => {
     (clientUsername && (u.username || '').toLowerCase() === clientUsername)
   );
 
+  console.log(`[invoice] client="${client}" → id=${clientId} uname=${clientUsername} foundUser=${foundUser?.id || 'NOT FOUND'} db.users=${(db.users||[]).length}`);
+
   const inv = {
     id: db.nextInvoiceId++,
     client_id: clientId || foundUser?.id || null,
@@ -696,6 +698,7 @@ app.post('/api/invoices', authMiddleware, async (req, res) => {
   writeDB(db);
 
   const notifyId = resolveClientId(inv.client_id, inv.client_username, db);
+  console.log(`[invoice] notifyId=${notifyId} → will send: ${!!notifyId}`);
   if (notifyId) await notifyClientInvoice(notifyId, inv);
 
   res.json(inv);
