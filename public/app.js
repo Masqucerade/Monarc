@@ -712,21 +712,10 @@ function setupCalc() {
 }
 
 /* ── Admin form tariff selector ──────────────────────────────────── */
-// Тарифы для формы админа (EU — ручной выбор, остальные из TARIFFS)
-const ADMIN_TARIFFS = {
-  eu: [
-    { name: 'Экспресс',      rate: 1900, label: '1 900 ₽/кг · до 5 кг'   },
-    { name: 'Наземный',      rate: 1750, label: '1 750 ₽/кг · 5–20 кг'    },
-    { name: 'Сборный груз',  rate: 1300, label: '1 300 ₽/кг · от 20 кг'   },
-  ],
-  cn: TARIFFS.cn,
-  jp: TARIFFS.jp,
-};
-
 function updateAdminTariffSelector(country) {
   const wrap = document.getElementById('pkg-tariff-wrap');
   const sel  = document.getElementById('pkg-tariff');
-  const tariffs = ADMIN_TARIFFS[country];
+  const tariffs = TARIFFS[country];
   if (!tariffs) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'flex';
   sel.innerHTML = tariffs.map(t => `<option value="${t.name}|${t.rate}">${t.name} — ${t.label}</option>`).join('');
