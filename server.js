@@ -49,6 +49,25 @@ function resolveClientId(clientId, clientUsername, db) {
   return foundPkg?.client_id || null;
 }
 
+// ── User upsert (Mini App auth) ───────────────────────────────────
+
+// Кэш в памяти — не сохраняем одного и того же пользователя повторно до рестарта
+const _knownUserIds = new Set();
+
+function upsertUserFromAuth(user) {
+  if (!user.id || _knownUserIds.has(user.id)) return;
+  _knownUserIds.add(user.id);
+  try {
+    const db = readDB();
+    if (!db.users) db.users = [];
+    const idx = db.users.findIndex(u => u.id === user.id);
+    const data = { id: user.id, username: user.username, name: user.name, updated_at: now() };
+    if (idx === -1) db.users.push({ ...data, created_at: now() });
+    else db.users[idx] = { ...db.users[idx], ...data };
+    writeDB(db);
+  } catch {}
+}
+
 // ── Middleware ────────────────────────────────────────────────────
 
 app.use(cors());
@@ -86,10 +105,12 @@ function authMiddleware(req, res, next) {
   const user = JSON.parse(decodeURIComponent(params.get('user')));
   req.user = {
     id: String(user.id),
-    username: user.username || '',
+    username: (user.username || '').toLowerCase(),
     name: [user.first_name, user.last_name].filter(Boolean).join(' '),
     is_admin: String(user.id) === ADMIN_ID,
   };
+  // Сохраняем пользователя в базе — чтобы уведомления работали даже без /start
+  upsertUserFromAuth(req.user);
   next();
 }
 
@@ -597,19 +618,28 @@ function formatAmount(amount, currency) {
   return amount + ' USDT';
 }
 
+function escHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 async function notifyClientInvoice(clientId, inv) {
   if (!BOT_TOKEN || !clientId) return;
-  const details = inv.payment_details ? `\n\n📋 <b>Реквизиты:</b>\n${inv.payment_details}` : '';
+  const details = inv.payment_details
+    ? `\n\n📋 <b>Реквизиты:</b>\n${escHtml(inv.payment_details)}`
+    : '';
   try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: clientId,
-        text: `💰 <b>Новый счёт #${inv.id}</b>\n\n${inv.description}\nСумма: <b>${formatAmount(inv.amount, inv.currency)}</b>${details}\n\nОткройте приложение Monarc чтобы подтвердить оплату`,
+        text: `💰 <b>Новый счёт #${inv.id}</b>\n\n${escHtml(inv.description)}\nСумма: <b>${formatAmount(inv.amount, inv.currency)}</b>${details}\n\nОткройте приложение Monarc чтобы подтвердить оплату`,
         parse_mode: 'HTML',
       }),
     });
-  } catch (err) { console.error('Invoice notify error:', err.message); }
+    const data = await res.json();
+    if (!data.ok) console.error(`[invoice notify] TG failed [${clientId}]:`, data.description);
+    else console.log(`[invoice notify] Sent to ${clientId}, inv#${inv.id}`);
+  } catch (err) { console.error('[invoice notify] Error:', err.message); }
 }
 
 // ── Invoice routes ────────────────────────────────────────────────
