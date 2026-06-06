@@ -142,20 +142,20 @@ function pkgCard(p, isAdmin) {
         <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${total > 0 ? '~' + fmt(total) + ' ₽' : '—'}</div></div>
       </div>`;
 
-  // Фото товара — для не-pending посылок
-  const photoBlock = !isPending ? `
-    ${p.photo_url
-      ? `<div class="pkg-photo-wrap">
-          <img src="${p.photo_url}" class="pkg-photo-img" alt="Фото товара" loading="lazy" />
-          ${isAdmin ? `<button class="btn-photo-delete" data-id="${p.id}" title="Удалить фото">✕</button>` : ''}
-        </div>`
-      : ''}
-    ${isAdmin
-      ? `<button class="btn-photo-upload" data-pkg-id="${p.id}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-          ${p.photo_url ? 'Заменить фото' : 'Прикрепить фото'}
-        </button>`
-      : ''}` : '';
+  // Фото товара — только отображение (кнопка загрузки переехала в actionsRow)
+  const photoBlock = (!isPending && p.photo_url)
+    ? `<div class="pkg-photo-wrap">
+        <img src="${p.photo_url}" class="pkg-photo-img" alt="Фото товара" loading="lazy" />
+        ${isAdmin ? `<button class="btn-photo-delete" data-id="${p.id}" title="Удалить фото">✕</button>` : ''}
+      </div>`
+    : '';
+
+  // Иконка-кнопка прикрепить/заменить фото (только для админа, не-pending)
+  const photoIconBtn = (isAdmin && !isPending)
+    ? `<button class="btn-photo-icon${p.photo_url ? ' has-photo' : ''}" data-pkg-id="${p.id}" title="${p.photo_url ? 'Заменить фото' : 'Прикрепить фото'}">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+      </button>`
+    : '';
 
   const clientRow = isAdmin && (p.client_name || p.client_username || p.client_id)
     ? `<div class="pkg-client">
@@ -196,6 +196,7 @@ function pkgCard(p, isAdmin) {
     ? `<div class="pkg-actions">
         <button class="btn-edit-status" data-id="${p.id}">Изменить / Редактировать</button>
         ${deliveryIconBtn}
+        ${photoIconBtn}
         <button class="btn-delete" data-id="${p.id}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </button>
@@ -1271,7 +1272,7 @@ document.addEventListener('click', async e => {
     return;
   }
 
-  const photoUploadBtn = e.target.closest('.btn-photo-upload');
+  const photoUploadBtn = e.target.closest('.btn-photo-icon');
   if (photoUploadBtn) {
     currentPhotoPackageId = parseInt(photoUploadBtn.dataset.pkgId);
     document.getElementById('photo-input').click();
@@ -1431,8 +1432,8 @@ async function init() {
       if (!file || !currentPhotoPackageId) return;
       const pkgId = currentPhotoPackageId;
       currentPhotoPackageId = null;
-      const uploadBtn = document.querySelector(`.btn-photo-upload[data-pkg-id="${pkgId}"]`);
-      if (uploadBtn) { uploadBtn.textContent = '⏳ Загружаем…'; uploadBtn.disabled = true; }
+      const uploadBtn = document.querySelector(`.btn-photo-icon[data-pkg-id="${pkgId}"]`);
+      if (uploadBtn) { uploadBtn.style.opacity = '0.4'; uploadBtn.disabled = true; }
       try {
         const photoData = await resizeImage(file, 1200, 1200, 0.82);
         await apiFetch(`/api/packages/${pkgId}/photo`, {
@@ -1444,7 +1445,7 @@ async function init() {
         loadPackages();
       } catch (err) {
         toast(err.message || 'Ошибка загрузки фото', 'error');
-        if (uploadBtn) { uploadBtn.textContent = 'Прикрепить фото'; uploadBtn.disabled = false; }
+        if (uploadBtn) { uploadBtn.style.opacity = ''; uploadBtn.disabled = false; }
       }
     });
 
