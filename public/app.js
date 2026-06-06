@@ -194,7 +194,7 @@ function pkgCard(p, isAdmin) {
 
   const actionsRow = isAdmin
     ? `<div class="pkg-actions">
-        <button class="btn-edit-status" data-id="${p.id}">Изменить / Редактировать</button>
+        <button class="btn-edit-status" data-id="${p.id}">Редактировать</button>
         ${deliveryIconBtn}
         ${photoIconBtn}
         <button class="btn-delete" data-id="${p.id}">

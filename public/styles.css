@@ -207,9 +207,10 @@ body::after {
 
 /* ── Delivery ──────────────────────────────────────────────────── */
 .btn-action-icon {
-  padding: 8px 10px; border-radius: var(--radius-xs); font-size: 15px;
+  width: 38px; height: 38px; border-radius: var(--radius-xs); font-size: 15px;
   background: rgba(255,255,255,0.04); border: 1px solid var(--border);
   cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
 }
 .btn-action-icon:active { background: rgba(255,255,255,0.09); }
 .btn-fill-delivery {
@@ -518,12 +519,13 @@ body::after {
 }
 .pkg-actions {
   display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border);
-  position: relative; z-index: 1;
+  position: relative; z-index: 1; align-items: center;
 }
 .btn-edit-status {
-  flex: 1; padding: 8px 12px; border-radius: var(--radius-xs);
+  flex: 1; padding: 0 12px; height: 38px; border-radius: var(--radius-xs);
   background: rgba(255,255,255,0.06); border: 1px solid var(--border-acc);
   color: var(--purple2); font-size: 13px; font-weight: 500; transition: background 0.15s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .btn-edit-status:active { background: rgba(255,255,255,0.1); }
 .btn-delete {
