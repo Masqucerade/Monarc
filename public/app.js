@@ -38,6 +38,8 @@ const INV_STATUS = {
 };
 
 /* ── State ───────────────────────────────────────────────────────── */
+let currentPhotoPackageId = null;
+
 const state = {
   user: null,
   packages: [],
@@ -97,6 +99,29 @@ function statusBadge(status) {
   return `<span class="status-badge ${s.cls}">${s.label}</span>`;
 }
 
+/* ── Image helpers ───────────────────────────────────────────────── */
+function resizeImage(file, maxW, maxH, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+        if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', quality));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 /* ── Package Card ────────────────────────────────────────────────── */
 function pkgCard(p, isAdmin) {
   const country = p.country || 'eu';
@@ -116,6 +141,21 @@ function pkgCard(p, isAdmin) {
         <div class="pkg-detail-item"><div class="pkg-detail-label">₽/кг</div><div class="pkg-detail-val">${r.rate > 0 ? fmt(r.rate) + ' ₽' : '—'}</div></div>
         <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${total > 0 ? '~' + fmt(total) + ' ₽' : '—'}</div></div>
       </div>`;
+
+  // Фото товара — для не-pending посылок
+  const photoBlock = !isPending ? `
+    ${p.photo_url
+      ? `<div class="pkg-photo-wrap">
+          <img src="${p.photo_url}" class="pkg-photo-img" alt="Фото товара" loading="lazy" />
+          ${isAdmin ? `<button class="btn-photo-delete" data-id="${p.id}" title="Удалить фото">✕</button>` : ''}
+        </div>`
+      : ''}
+    ${isAdmin
+      ? `<button class="btn-photo-upload" data-pkg-id="${p.id}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+          ${p.photo_url ? 'Заменить фото' : 'Прикрепить фото'}
+        </button>`
+      : ''}` : '';
 
   const clientRow = isAdmin && (p.client_name || p.client_username || p.client_id)
     ? `<div class="pkg-client">
@@ -184,6 +224,7 @@ function pkgCard(p, isAdmin) {
       <div class="pkg-country"><span>${c.flag}</span>${c.name}</div>
       ${p.item_name ? `<div class="pkg-item-name">${p.item_name}</div>` : ''}
       ${detailsRow}
+      ${photoBlock}
       ${clientRow}
       ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;position:relative;z-index:1">${p.description}</div>` : ''}
       ${deliveryBlock}
@@ -453,7 +494,6 @@ async function loadStats() {
   try {
     const s = await apiFetch('/api/stats');
     document.getElementById('stat-total').textContent = s.total;
-    document.getElementById('stat-pending').textContent = s.pending;
     document.getElementById('stat-received').textContent = s.received;
     document.getElementById('stat-shipped').textContent = s.shipped;
     document.getElementById('stat-ready').textContent = s.ready;
@@ -1231,6 +1271,29 @@ document.addEventListener('click', async e => {
     return;
   }
 
+  const photoUploadBtn = e.target.closest('.btn-photo-upload');
+  if (photoUploadBtn) {
+    currentPhotoPackageId = parseInt(photoUploadBtn.dataset.pkgId);
+    document.getElementById('photo-input').click();
+    return;
+  }
+
+  const photoDeleteBtn = e.target.closest('.btn-photo-delete');
+  if (photoDeleteBtn) {
+    const id = parseInt(photoDeleteBtn.dataset.id);
+    const doDelete = async () => {
+      try {
+        await apiFetch(`/api/packages/${id}/photo`, { method: 'DELETE' });
+        toast('Фото удалено', 'success');
+        haptic('light');
+        loadPackages();
+      } catch (err) { toast(err.message, 'error'); }
+    };
+    if (tg?.showConfirm) tg.showConfirm('Удалить фото?', ok => { if (ok) doDelete(); });
+    else if (confirm('Удалить фото?')) doDelete();
+    return;
+  }
+
   const editBtn = e.target.closest('.btn-edit-status');
   if (editBtn) {
     const pkg = state.packages.find(p => p.id === parseInt(editBtn.dataset.id));
@@ -1360,6 +1423,30 @@ async function init() {
     // Показываем приложение сразу, данные грузятся в фоне
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
+
+    // Обработчик загрузки фото
+    document.getElementById('photo-input')?.addEventListener('change', async e => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file || !currentPhotoPackageId) return;
+      const pkgId = currentPhotoPackageId;
+      currentPhotoPackageId = null;
+      const uploadBtn = document.querySelector(`.btn-photo-upload[data-pkg-id="${pkgId}"]`);
+      if (uploadBtn) { uploadBtn.textContent = '⏳ Загружаем…'; uploadBtn.disabled = true; }
+      try {
+        const photoData = await resizeImage(file, 1200, 1200, 0.82);
+        await apiFetch(`/api/packages/${pkgId}/photo`, {
+          method: 'POST',
+          body: JSON.stringify({ photo_data: photoData }),
+        });
+        toast('Фото прикреплено', 'success');
+        haptic('medium');
+        loadPackages();
+      } catch (err) {
+        toast(err.message || 'Ошибка загрузки фото', 'error');
+        if (uploadBtn) { uploadBtn.textContent = 'Прикрепить фото'; uploadBtn.disabled = false; }
+      }
+    });
 
     loadPackages();
     setupCalc();

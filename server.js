@@ -15,6 +15,10 @@ const DB_FILE  = path.join(DATA_DIR, 'data.json');
 // Создаём директорию если её нет (нужно при первом запуске с Volume)
 try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
 
+// Папка для фотографий товаров
+const PHOTOS_DIR = path.join(DATA_DIR, 'photos');
+try { fs.mkdirSync(PHOTOS_DIR, { recursive: true }); } catch {}
+
 // Deterministic export token derived from secrets (no extra env var needed)
 const EXPORT_TOKEN = process.env.EXPORT_TOKEN ||
   crypto.createHash('sha256').update((BOT_TOKEN || '') + ADMIN_ID).digest('hex').slice(0, 24);
@@ -71,8 +75,16 @@ function upsertUserFromAuth(user) {
 // ── Middleware ────────────────────────────────────────────────────
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '8mb' })); // увеличен для загрузки фото
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Отдаём фотографии товаров
+app.get('/photos/:filename', (req, res) => {
+  const filename = path.basename(req.params.filename); // защита от path traversal
+  const filepath = path.join(PHOTOS_DIR, filename);
+  if (!fs.existsSync(filepath)) return res.status(404).send('Not found');
+  res.sendFile(filepath);
+});
 
 // ── Auth ──────────────────────────────────────────────────────────
 
@@ -344,6 +356,53 @@ app.delete('/api/packages/:id', authMiddleware, (req, res) => {
   db.packages = db.packages.filter(p => p.id !== parseInt(req.params.id));
   writeDB(db);
   res.json({ success: true });
+});
+
+// Admin: прикрепить фото к посылке
+app.post('/api/packages/:id/photo', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const { photo_data } = req.body;
+  if (!photo_data) return res.status(400).json({ error: 'Нет данных фото' });
+
+  const db = readDB();
+  const idx = db.packages.findIndex(p => p.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ error: 'Посылка не найдена' });
+  const pkg = db.packages[idx];
+
+  // Удаляем старое фото если было
+  if (pkg.photo_url) {
+    try { fs.unlinkSync(path.join(PHOTOS_DIR, path.basename(pkg.photo_url))); } catch {}
+  }
+
+  // Разбираем data URL: data:image/jpeg;base64,...
+  const m = photo_data.match(/^data:image\/(jpeg|jpg|png|webp);base64,(.+)$/i);
+  if (!m) return res.status(400).json({ error: 'Неверный формат фото' });
+  const ext = m[1].toLowerCase() === 'png' ? 'png' : 'jpg';
+  const filename = `pkg_${pkg.id}_${Date.now()}.${ext}`;
+  fs.writeFileSync(path.join(PHOTOS_DIR, filename), Buffer.from(m[2], 'base64'));
+
+  pkg.photo_url = `/photos/${filename}`;
+  pkg.updated_at = now();
+  db.packages[idx] = pkg;
+  writeDB(db);
+  res.json(enrichPackage(pkg));
+});
+
+// Admin: удалить фото
+app.delete('/api/packages/:id/photo', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const db = readDB();
+  const idx = db.packages.findIndex(p => p.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ error: 'Посылка не найдена' });
+  const pkg = db.packages[idx];
+  if (pkg.photo_url) {
+    try { fs.unlinkSync(path.join(PHOTOS_DIR, path.basename(pkg.photo_url))); } catch {}
+  }
+  pkg.photo_url = null;
+  pkg.updated_at = now();
+  db.packages[idx] = pkg;
+  writeDB(db);
+  res.json(enrichPackage(pkg));
 });
 
 // Track by number

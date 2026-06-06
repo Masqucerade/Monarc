@@ -271,6 +271,34 @@ body::after {
 }
 .delivery-tpl-name-input:focus { border-color: var(--border-acc); }
 
+/* ── Package photo ─────────────────────────────────────────────── */
+.pkg-photo-wrap {
+  position: relative; margin-bottom: 10px;
+  border-radius: 10px; overflow: hidden;
+  background: rgba(255,255,255,0.03);
+}
+.pkg-photo-img {
+  width: 100%; height: auto; display: block;
+  max-height: 240px; object-fit: cover; border-radius: 10px;
+}
+.btn-photo-delete {
+  position: absolute; top: 8px; right: 8px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(0,0,0,0.65); border: none;
+  color: #fff; font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1; z-index: 2;
+}
+.btn-photo-upload {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  background: rgba(59,130,246,0.07); border: 1px solid rgba(59,130,246,0.2);
+  color: #60a5fa; cursor: pointer; margin-bottom: 8px; font-family: inherit;
+  position: relative; z-index: 1;
+}
+.btn-photo-upload:active { background: rgba(59,130,246,0.15); }
+.btn-photo-upload:disabled { opacity: 0.5; cursor: default; }
+
 /* ── Archive toggle ────────────────────────────────────────────── */
 .btn-archive-toggle {
   display: flex; align-items: center; gap: 8px; width: 100%;
