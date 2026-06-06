@@ -901,6 +901,18 @@ app.get('/api/rates', (req, res) => {
       popular_stores: ['Poizon', 'GooFish (Xianyu)', 'Taobao', '1688'],
     },
     {
+      id: 'gb', flag: '🇬🇧', name: 'Великобритания',
+      warehouse: 'Великобритания', delivery_days: '~2 недели',
+      price_unit: '£ / кор.',
+      note: '* Стоимость приблизительная, цена за коробку',
+      rates: [
+        { name: 'До 2 кг',  price: 19,  condition: '~2 недели' },
+        { name: 'До 5 кг',  price: 42,  condition: '~2 недели' },
+        { name: 'До 20 кг', price: 118, condition: '~2 недели' },
+      ],
+      popular_stores: ['Jaded London', 'ASOS', 'Represent', 'End Clothing', 'Size?', 'Footpatrol', 'Palace', 'JD Sports', 'Flannels', 'Selfridges'],
+    },
+    {
       id: 'jp', flag: '🇯🇵', name: 'Япония',
       warehouse: 'Катано, Япония', delivery_days: '2–4 нед.',
       note: '* Стоимость приблизительная, зависит от количества и типа товара',

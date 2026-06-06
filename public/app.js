@@ -613,7 +613,7 @@ async function loadRates() {
             ${c.rates.map(r => `<tr>
               <td>${r.name}</td>
               <td><span class="rate-condition">${r.condition}</span></td>
-              <td>${fmt(r.price)} ₽/кг</td>
+              <td>${fmt(r.price)} ${c.price_unit || '₽/кг'}</td>
             </tr>`).join('')}
           </tbody>
         </table>
