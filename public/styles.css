@@ -238,16 +238,38 @@ body::after {
 .delivery-type-pill.active {
   background: rgba(255,255,255,0.1); border-color: var(--border-acc); color: var(--text1);
 }
-.delivery-save-row {
-  display: flex; align-items: center; gap: 8px;
+.delivery-save-btn {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 8px 0; gap: 10px;
   font-size: 13px; color: var(--text2); cursor: pointer;
+  background: none; border: none; font-family: inherit; text-align: left;
+  -webkit-tap-highlight-color: transparent;
 }
-.delivery-save-row input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
+.delivery-save-btn:active { opacity: 0.7; }
+.delivery-toggle-track {
+  position: relative; width: 44px; height: 26px; flex-shrink: 0;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 99px; transition: background .2s, border-color .2s;
+}
+.delivery-save-btn.active .delivery-toggle-track {
+  background: rgba(34,197,94,0.25); border-color: rgba(34,197,94,0.5);
+}
+.delivery-toggle-knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(255,255,255,0.35); transition: transform .22s cubic-bezier(.4,0,.2,1), background .2s;
+}
+.delivery-save-btn.active .delivery-toggle-knob {
+  transform: translateX(18px);
+  background: #4ade80;
+}
 .delivery-tpl-name-input {
-  width: 100%; margin-top: 8px; padding: 10px 12px;
+  width: 100%; margin-top: 6px; padding: 10px 12px;
   background: rgba(255,255,255,0.05); border: 1px solid var(--border);
-  border-radius: var(--radius-xs); color: var(--text1); font-size: 14px; font-family: inherit;
+  border-radius: var(--radius-xs); color: var(--text); font-size: 14px; font-family: inherit;
+  outline: none; transition: border-color .15s;
 }
+.delivery-tpl-name-input:focus { border-color: var(--border-acc); }
 
 /* ── Archive toggle ────────────────────────────────────────────── */
 .btn-archive-toggle {

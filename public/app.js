@@ -837,7 +837,10 @@ function openDeliveryModal(pkgId) {
   currentDeliveryType = 'yandex';
   document.querySelectorAll('.delivery-type-pill').forEach((p, i) => p.classList.toggle('active', i === 0));
   updateDeliveryNameWrap('yandex');
+  // Сбрасываем toggle и поле имени шаблона
+  document.getElementById('delivery-save-toggle')?.classList.remove('active');
   document.getElementById('delivery-tpl-name').style.display = 'none';
+  document.getElementById('delivery-tpl-name').value = '';
   showModal('delivery-modal-overlay');
   loadAddressTemplates();
 }
@@ -852,10 +855,20 @@ function setupDeliveryModal() {
       updateDeliveryNameWrap(currentDeliveryType);
     });
   });
-  // Save as template checkbox
-  document.getElementById('delivery-save-check')?.addEventListener('change', e => {
-    document.getElementById('delivery-tpl-name').style.display = e.target.checked ? 'block' : 'none';
-  });
+
+  // Toggle "Сохранить как шаблон" — кастомная кнопка вместо нативного чекбокса
+  const saveToggle = document.getElementById('delivery-save-toggle');
+  const tplNameInput = document.getElementById('delivery-tpl-name');
+  if (saveToggle && tplNameInput) {
+    saveToggle.addEventListener('click', () => {
+      saveToggle.classList.toggle('active');
+      const isOn = saveToggle.classList.contains('active');
+      tplNameInput.style.display = isOn ? 'block' : 'none';
+      if (isOn) setTimeout(() => tplNameInput.focus(), 80);
+      haptic('light');
+    });
+  }
+
   // Form submit
   document.getElementById('delivery-form')?.addEventListener('submit', async e => {
     e.preventDefault();
@@ -865,8 +878,18 @@ function setupDeliveryModal() {
     const pickup_address = document.getElementById('delivery-address').value.trim();
     const phone = document.getElementById('delivery-phone').value.trim();
     const full_name = document.getElementById('delivery-fullname').value.trim();
-    const saveAsTpl = document.getElementById('delivery-save-check').checked;
+
+    const saveToggleEl = document.getElementById('delivery-save-toggle');
+    const saveAsTpl = saveToggleEl?.classList.contains('active') ?? false;
     const tplName = document.getElementById('delivery-tpl-name').value.trim();
+
+    // Если toggle включён но имя не введено — показываем подсказку
+    if (saveAsTpl && !tplName) {
+      toast('Введите название шаблона', 'error');
+      document.getElementById('delivery-tpl-name').focus();
+      btn.disabled = false; btn.textContent = 'Отправить';
+      return;
+    }
 
     try {
       await apiFetch(`/api/packages/${pkgId}/delivery-response`, {
@@ -879,9 +902,11 @@ function setupDeliveryModal() {
           method: 'POST',
           body: JSON.stringify({ name: tplName, delivery_type: currentDeliveryType, pickup_address, phone, full_name }),
         }).catch(() => {});
+        toast('Данные отправлены и шаблон сохранён!', 'success');
+      } else {
+        toast('Данные доставки отправлены!', 'success');
       }
 
-      toast('Данные отправлены!', 'success');
       haptic('medium');
       hideModal('delivery-modal-overlay');
       loadPackages();

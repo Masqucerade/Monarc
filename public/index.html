@@ -625,11 +625,13 @@
 
       <!-- Save as template -->
       <div class="form-group">
-        <label class="delivery-save-row">
-          <input type="checkbox" id="delivery-save-check" />
-          <span>Сохранить как шаблон</span>
-        </label>
-        <input type="text" id="delivery-tpl-name" class="delivery-tpl-name-input" placeholder="Название (напр. СДЭК у метро)" style="display:none" autocomplete="off" />
+        <button type="button" class="delivery-save-btn" id="delivery-save-toggle">
+          <span>Сохранить как шаблон адреса</span>
+          <div class="delivery-toggle-track">
+            <div class="delivery-toggle-knob"></div>
+          </div>
+        </button>
+        <input type="text" id="delivery-tpl-name" class="delivery-tpl-name-input" placeholder="Название (напр. СДЭК Савёловская)" style="display:none" autocomplete="off" />
       </div>
 
       <button type="submit" class="btn-primary" id="delivery-submit">Отправить</button>
