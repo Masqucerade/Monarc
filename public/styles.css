@@ -193,7 +193,7 @@ body::after {
   background: rgba(255,255,255,0.09); border-color: var(--border-acc); color: var(--purple2);
 }
 .inv-dot {
-  position: absolute; top: -3px; right: -3px;
+  position: absolute; top: -5px; right: 6px;
   width: 9px; height: 9px; border-radius: 50%;
   background: #ef4444; border: 2px solid var(--bg);
   pointer-events: none;
