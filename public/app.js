@@ -27,7 +27,7 @@ const STATUS = {
   processing: { label: 'Обрабатывается', cls: 'badge-processing' },
   shipped:    { label: 'В пути',         cls: 'badge-shipped'    },
   ready:      { label: 'Готово к выдаче',cls: 'badge-ready'      },
-  delivered:  { label: 'Выдано / Отправлено', cls: 'badge-delivered' },
+  delivered:  { label: 'Завершён', cls: 'badge-delivered' },
 };
 
 const INV_STATUS = {

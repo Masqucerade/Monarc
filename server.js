@@ -155,7 +155,7 @@ function enrichPackage(p) {
 
 const STATUS_LABELS = {
   pending: 'Ожидается', received: 'На складе', processing: 'Обрабатывается',
-  shipped: 'В пути', ready: 'Готово к выдаче', delivered: 'Выдано / Отправлено',
+  shipped: 'В пути', ready: 'Готово к выдаче', delivered: 'Завершён',
 };
 
 async function notifyClient(clientId, trackingNumber, status) {
@@ -951,7 +951,7 @@ app.get('/export.csv', (req, res) => {
   const COUNTRY = { eu: 'Европа', cn: 'Китай', jp: 'Япония' };
   const STATUS_RU = {
     pending: 'Ожидается', received: 'На складе', processing: 'Обрабатывается',
-    shipped: 'В пути', ready: 'Готово к выдаче', delivered: 'Выдано / Отправлено',
+    shipped: 'В пути', ready: 'Готово к выдаче', delivered: 'Завершён',
   };
 
   const header = ['ID', 'Трек-номер', 'Статус', 'Страна', 'Вес (кг)', 'Тариф', 'Стоимость (₽)',
@@ -1078,7 +1078,7 @@ app.get('/admin/live', (req, res) => {
 <script>
 const TOKEN='${token}';
 const BASE='${base}';
-const STATUS_RU={pending:'Ожидается',received:'На складе',processing:'Обрабатывается',shipped:'В пути',ready:'Готово к выдаче',delivered:'Выдано / Отправлено'};
+const STATUS_RU={pending:'Ожидается',received:'На складе',processing:'Обрабатывается',shipped:'В пути',ready:'Готово к выдаче',delivered:'Завершён'};
 const COUNTRY={eu:'🇪🇺 Европа',cn:'🇨🇳 Китай',jp:'🇯🇵 Япония'};
 function fmt(n){return Number(n).toLocaleString('ru-RU')}
 function fmtDate(s){return new Date(s).toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'numeric'})}
@@ -1095,7 +1095,7 @@ async function load(){
        <div class="stat"><b>\${stats.received}</b>На складе</div>
        <div class="stat"><b>\${stats.shipped}</b>В пути</div>
        <div class="stat"><b style="-webkit-text-fill-color:#4ade80">\${stats.ready}</b>Готово</div>
-       <div class="stat"><b>\${stats.delivered}</b>Выдано / Отправлено</div>\`;
+       <div class="stat"><b>\${stats.delivered}</b>Завершён</div>\`;
     document.getElementById('tbody').innerHTML=pkgs.map(p=>\`<tr>
       <td class="track">\${p.tracking_number}</td>
       <td><span class="badge b-\${p.status}">\${STATUS_RU[p.status]||p.status}</span></td>
