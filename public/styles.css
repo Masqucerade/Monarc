@@ -323,6 +323,10 @@ body::after {
 .btn-view-photo:active { background: rgba(255,255,255,0.1); }
 .btn-view-photo svg { opacity: .7; flex-shrink: 0; }
 
+/* ── No-tracking label ─────────────────────────────────────────── */
+.pkg-no-track { color: var(--text3); font-style: italic; }
+.pkg-no-track-id { font-size: 11px; color: var(--text3); margin-left: 6px; opacity: .6; }
+
 /* ── Package photo ─────────────────────────────────────────────── */
 .pkg-photo-wrap {
   position: relative; margin-bottom: 10px;

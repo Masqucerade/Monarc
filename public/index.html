@@ -336,6 +336,28 @@
           </div>
         </div>
 
+        <!-- iPhone access -->
+        <div class="i-section-label" style="margin-top:16px">📱 iPhone</div>
+        <div class="export-card">
+          <div class="export-row">
+            <div class="export-icon">📲</div>
+            <div class="export-info">
+              <div class="export-title">Таблица на экране «Домой»</div>
+              <div class="export-sub">Safari → Поделиться → «На экран "Домой"» — работает как приложение</div>
+            </div>
+            <button id="btn-live-iphone" class="btn-export-action">Открыть →</button>
+          </div>
+          <div class="export-divider"></div>
+          <div class="export-row">
+            <div class="export-icon">🟦</div>
+            <div class="export-info">
+              <div class="export-title">Виджет (Scriptable)</div>
+              <div class="export-sub">Установи Scriptable → «+» → вставь скопированный код</div>
+            </div>
+            <button id="btn-widget-script" class="btn-export-action">Скопировать</button>
+          </div>
+        </div>
+
         <!-- Backup -->
         <div class="i-section-label" style="margin-top:16px">Резервное копирование</div>
         <div class="backup-card">
@@ -440,7 +462,7 @@
       <input type="hidden" id="pkg-id" />
       <div class="form-group">
         <label>Трек-номер *</label>
-        <input type="text" id="pkg-tracking" placeholder="Например: ITRU123456789" required autocomplete="off" />
+        <input type="text" id="pkg-tracking" placeholder="ITRU123456789 · или NO если трека нет" required autocomplete="off" />
       </div>
       <div class="form-group">
         <label>Название товара</label>

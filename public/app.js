@@ -240,10 +240,13 @@ function pkgCard(p, isAdmin) {
         <div class="pkg-tracking">
           <div class="pkg-track-label">Трек-номер</div>
           <div class="pkg-track-row">
-            <span class="pkg-track-num">${p.tracking_number}</span>
-            <button class="copy-btn" data-copy="${p.tracking_number}">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            </button>
+            ${p.no_tracking
+              ? `<span class="pkg-track-num pkg-no-track">Трек не получен</span>
+                 ${isAdmin ? `<span class="pkg-no-track-id">${p.tracking_number}</span>` : ''}`
+              : `<span class="pkg-track-num">${p.tracking_number}</span>
+                 <button class="copy-btn" data-copy="${p.tracking_number}">
+                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                 </button>`}
           </div>
         </div>
         ${statusBadge(p.status)}
@@ -1392,6 +1395,75 @@ document.getElementById('pkg-form').addEventListener('submit', handleFormSubmit)
 document.getElementById('client-pkg-form').addEventListener('submit', handleClientFormSubmit);
 document.getElementById('invoice-form').addEventListener('submit', handleInvoiceFormSubmit);
 
+/* ── Scriptable widget generator ────────────────────────────────── */
+function generateScriptableWidget(base, token) {
+  return `// Monarc Cargo — виджет на iPhone
+// 1. Установи Scriptable из App Store (бесплатно)
+// 2. Открой Scriptable → нажми «+» → вставь этот код → сохрани
+// 3. Добавь виджет Scriptable на экран «Домой» → выбери этот скрипт
+
+const BASE = "${base}";
+const TOKEN = "${token}";
+
+async function run() {
+  const req = new Request(BASE + "/admin/widget-data?token=" + TOKEN);
+  const d = await req.loadJSON();
+
+  const w = new ListWidget();
+  w.backgroundColor = new Color("#08080f");
+  w.url = BASE + "/admin/live?token=" + TOKEN;
+  w.setPadding(14, 16, 14, 16);
+
+  // Header
+  const hdr = w.addStack();
+  hdr.layoutHorizontally();
+  hdr.centerAlignContent();
+  const ttl = hdr.addText("MONARC");
+  ttl.font = Font.heavySystemFont(15);
+  ttl.textColor = Color.white();
+  hdr.addSpacer();
+  const sub = hdr.addText("CARGO");
+  sub.font = Font.semiboldSystemFont(9);
+  sub.textColor = new Color("#475569");
+
+  w.addSpacer(10);
+
+  const rows = [
+    { icon: "📦", label: "Склад",  val: d.received, color: "#fb923c" },
+    { icon: "🚚", label: "В пути", val: d.shipped,  color: "#60a5fa" },
+    { icon: "✅", label: "Готово", val: d.ready,    color: "#4ade80" },
+    { icon: "📊", label: "Всего",  val: d.total,    color: "#94a3b8" },
+  ];
+
+  for (const r of rows) {
+    const row = w.addStack();
+    row.layoutHorizontally();
+    row.centerAlignContent();
+    const lbl = row.addText(r.icon + " " + r.label);
+    lbl.font = Font.systemFont(12);
+    lbl.textColor = new Color("#64748b");
+    row.addSpacer();
+    const num = row.addText(String(r.val));
+    num.font = Font.boldSystemFont(15);
+    num.textColor = new Color(r.color);
+    w.addSpacer(5);
+  }
+
+  if (d.reviewing_invoices > 0) {
+    w.addSpacer(4);
+    const inv = w.addText("💰 " + d.reviewing_invoices + " оплат на проверке");
+    inv.font = Font.systemFont(10);
+    inv.textColor = new Color("#fbbf24");
+  }
+
+  Script.setWidget(w);
+  if (!config.runsInWidget) await w.presentSmall();
+  Script.complete();
+}
+
+run();`;
+}
+
 /* ── Init ────────────────────────────────────────────────────────── */
 async function init() {
   if (!tg?.initData) {
@@ -1438,6 +1510,18 @@ async function init() {
         });
         document.getElementById('btn-csv').addEventListener('click', () => {
           window.open(info.csv_url, '_blank');
+        });
+
+        // iPhone buttons
+        document.getElementById('btn-live-iphone')?.addEventListener('click', () => {
+          window.open(info.live_url, '_blank');
+        });
+        document.getElementById('btn-widget-script')?.addEventListener('click', () => {
+          const base = info.live_url.replace(/\/admin\/live.*$/, '');
+          const script = generateScriptableWidget(base, info.token);
+          copyText(script);
+          toast('Скрипт скопирован! Вставь в Scriptable', 'success');
+          haptic('medium');
         });
       }).catch(() => {});
 

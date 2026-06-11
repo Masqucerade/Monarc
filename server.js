@@ -221,8 +221,11 @@ app.post('/api/packages', authMiddleware, (req, res) => {
   if (!tracking_number?.trim()) return res.status(400).json({ error: 'Трек-номер обязателен' });
 
   const db = readDB();
-  const track = tracking_number.trim().toUpperCase();
-  if (db.packages.find(p => p.tracking_number === track)) {
+  const trackRaw = tracking_number.trim().toUpperCase();
+  const isNoTrack = trackRaw === 'NO'; // нет трека — генерируем временный ID
+  const track = isNoTrack ? `NO-${db.nextId}` : trackRaw;
+
+  if (!isNoTrack && db.packages.find(p => p.tracking_number === track)) {
     return res.status(400).json({ error: 'Такой трек-номер уже существует' });
   }
 
@@ -231,6 +234,7 @@ app.post('/api/packages', authMiddleware, (req, res) => {
   const pkg = {
     id: db.nextId++,
     tracking_number: track,
+    no_tracking: isNoTrack || undefined,
     client_id: client_id || null,
     client_username: client_username ? client_username.replace('@', '') : null,
     client_name: client_name || null,
@@ -979,6 +983,17 @@ app.get('/export.csv', (req, res) => {
   res.send('﻿' + [header, ...rows].join('\r\n'));
 });
 
+// ── Widget data (для Scriptable виджета на iPhone) ────────────────
+
+app.get('/admin/widget-data', (req, res) => {
+  if (req.query.token !== EXPORT_TOKEN) return res.status(403).json({ error: 'Forbidden' });
+  const db = readDB();
+  const s = { total: db.packages.length, pending: 0, received: 0, processing: 0, shipped: 0, ready: 0, delivered: 0 };
+  db.packages.forEach(p => { if (s[p.status] !== undefined) s[p.status]++; });
+  const reviewing = (db.invoices || []).filter(i => i.status === 'reviewing').length;
+  res.json({ ...s, reviewing_invoices: reviewing });
+});
+
 // ── Live admin table ──────────────────────────────────────────────
 
 app.get('/admin/data', (req, res) => {
@@ -1000,6 +1015,10 @@ app.get('/admin/live', (req, res) => {
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="Monarc Live"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#08080f"/>
 <title>Monarc — Live таблица</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
