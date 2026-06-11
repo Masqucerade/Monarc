@@ -49,7 +49,7 @@
       <div class="section-header">
         <div class="view-toggle">
           <button class="view-pill active" data-view="packages">📦 Посылки</button>
-          <button class="view-pill" data-view="invoices">💰 Счета</button>
+          <button class="view-pill" data-view="invoices">💰 Счета<span class="inv-dot" id="inv-dot" style="display:none"></span></button>
         </div>
         <div id="admin-stats" class="stats-row" style="display:none">
           <div class="stat-chip active" data-filter="all">Все <span id="stat-total">0</span></div>
@@ -491,7 +491,7 @@
           <option value="processing">⚙️ Обрабатывается</option>
           <option value="shipped">🚚 В пути</option>
           <option value="ready">✅ Готово к выдаче</option>
-          <option value="delivered">🎉 Выдано</option>
+          <option value="delivered">🎉 Выдано / Отправлено</option>
         </select>
       </div>
       <div class="form-group">

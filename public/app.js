@@ -27,7 +27,7 @@ const STATUS = {
   processing: { label: 'Обрабатывается', cls: 'badge-processing' },
   shipped:    { label: 'В пути',         cls: 'badge-shipped'    },
   ready:      { label: 'Готово к выдаче',cls: 'badge-ready'      },
-  delivered:  { label: 'Выдано',         cls: 'badge-delivered'  },
+  delivered:  { label: 'Выдано / Отправлено', cls: 'badge-delivered' },
 };
 
 const INV_STATUS = {
@@ -326,6 +326,14 @@ function invoiceCard(inv, isAdmin) {
     </div>`;
 }
 
+/* ── Invoice badge dot ───────────────────────────────────────────── */
+function updateInvoiceBadge(invoices) {
+  const dot = document.getElementById('inv-dot');
+  if (!dot || state.user?.is_admin) return;
+  const hasUnpaid = (invoices || state.invoices).some(inv => inv.status === 'pending');
+  dot.style.display = hasUnpaid ? 'block' : 'none';
+}
+
 /* ── Invoices Tab ────────────────────────────────────────────────── */
 async function loadInvoices() {
   const list = document.getElementById('invoices-list');
@@ -333,6 +341,7 @@ async function loadInvoices() {
   try {
     state.invoices = await apiFetch('/api/invoices');
     renderInvoices();
+    updateInvoiceBadge(state.invoices);
   } catch (e) {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">${e.message}</div></div>`;
   }
@@ -1486,6 +1495,13 @@ async function init() {
     });
 
     loadPackages();
+    // Проверяем неоплаченные счета в фоне (только для клиентов)
+    if (!state.user.is_admin) {
+      apiFetch('/api/invoices').then(invs => {
+        state.invoices = invs;
+        updateInvoiceBadge(invs);
+      }).catch(() => {});
+    }
     setupCalc();
     setupWarehouseTabs();
     setupDeliveryModal();
