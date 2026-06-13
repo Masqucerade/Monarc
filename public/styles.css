@@ -207,7 +207,7 @@ body::after {
 .inv-card::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
 }
-.inv-pending::before  { background: linear-gradient(90deg,#f59e0b,#fbbf24); }
+.inv-pending::before  { background: linear-gradient(90deg,#7c3aed,#a78bfa); }
 .inv-reviewing::before{ background: linear-gradient(90deg,#3b82f6,#60a5fa); }
 .inv-paid::before     { background: linear-gradient(90deg,#22c55e,#4ade80); }
 .inv-cancelled::before{ background: linear-gradient(90deg,#475569,#64748b); }
@@ -373,7 +373,7 @@ body::after {
   font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 99px;
   white-space: nowrap; flex-shrink: 0; margin-left: 8px; margin-top: 2px;
 }
-.inv-badge-pending   { background: rgba(245,158,11,.12); color:#fbbf24; border:1px solid rgba(245,158,11,.25); }
+.inv-badge-pending   { background: rgba(139,92,246,.12); color:#a78bfa; border:1px solid rgba(139,92,246,.25); }
 .inv-badge-reviewing { background: rgba(59,130,246,.12);  color:#60a5fa; border:1px solid rgba(59,130,246,.2); }
 .inv-badge-paid      { background: rgba(34,197,94,.12);   color:#4ade80; border:1px solid rgba(34,197,94,.3); }
 .inv-badge-cancelled { background: rgba(100,116,139,.12); color:#94a3b8; border:1px solid rgba(100,116,139,.2); }
@@ -503,7 +503,7 @@ body::after {
   background: linear-gradient(135deg, var(--status-color, transparent) 0%, transparent 55%);
   opacity: 0.06; pointer-events: none;
 }
-.pkg-card.status-pending    { --status-color: var(--yellow);  border-color: rgba(245,158,11,0.18); }
+.pkg-card.status-pending    { --status-color: #8b5cf6;         border-color: rgba(139,92,246,0.18); }
 .pkg-card.status-received   { --status-color: var(--yellow);  border-color: rgba(249,115,22,0.18); }
 .pkg-card.status-processing { --status-color: var(--text3);   border-color: rgba(100,116,139,0.2); }
 .pkg-card.status-shipped    { --status-color: var(--blue);    border-color: rgba(59,130,246,0.18); }
@@ -545,7 +545,7 @@ body::after {
   font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
   padding: 4px 10px; border-radius: 99px; flex-shrink: 0; white-space: nowrap;
 }
-.badge-pending    { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+.badge-pending    { background: rgba(139,92,246,0.12); color: #a78bfa; border: 1px solid rgba(139,92,246,0.25); }
 .badge-received   { background: rgba(249,115,22,0.12);  color: #fb923c; border: 1px solid rgba(249,115,22,0.25); }
 .badge-processing { background: rgba(100,116,139,0.12); color: #94a3b8; border: 1px solid rgba(100,116,139,0.2); }
 .badge-shipped    { background: rgba(59,130,246,0.12);   color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
