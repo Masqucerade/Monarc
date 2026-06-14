@@ -647,6 +647,64 @@ async function loadRates() {
 }
 
 /* ── Warehouse tabs ──────────────────────────────────────────────── */
+/* ── Warehouse Cards ─────────────────────────────────────────────── */
+const WAREHOUSE_CARDS = {
+  it: { flag: '🇮🇹', code: 'EU · IT', addr: 'Parma (PR), Italia',       time: '⏱ 10–15 дней' },
+  gb: { flag: '🇬🇧', code: 'EU · GB', addr: 'United Kingdom',            time: '⏱ ~2 недели'  },
+  cn: { flag: '🇨🇳', code: 'AS · CN', addr: 'Beijing, China',            time: '⏱ 17–25 дней' },
+  jp: { flag: '🇯🇵', code: 'AS · JP', addr: 'Katano, Osaka, Japan',      time: '⏱ 2–4 нед.'   },
+};
+
+function injectWarehouseCards() {
+  const user = state.user;
+  const firstName   = (user?.name || 'Клиент').split(' ')[0];
+  const recipientId = user?.username ? `@${user.username}` : `ID ${user?.id || ''}`;
+
+  Object.entries(WAREHOUSE_CARDS).forEach(([key, wh]) => {
+    const panel = document.getElementById(`wh-${key}`);
+    if (!panel || panel.querySelector('.wh-card')) return;
+
+    const recipient  = `${firstName} / Monarc / ${recipientId}`;
+    const textToCopy = `Получатель: ${recipient}\nАдрес: ${wh.addr}`;
+
+    const card = document.createElement('div');
+    card.className = 'wh-card';
+    card.innerHTML = `
+      <div class="wh-card-top">
+        <div class="wh-card-brand">
+          <span class="wh-card-flag">${wh.flag}</span>
+          <span class="wh-card-brand-name">MONARC CARGO</span>
+        </div>
+        <span class="wh-card-code">${wh.code}</span>
+      </div>
+      <div class="wh-card-chip"></div>
+      <div class="wh-card-fields">
+        <div class="wh-card-field">
+          <div class="wh-card-field-label">АДРЕС СКЛАДА</div>
+          <div class="wh-card-field-val">${wh.addr}</div>
+        </div>
+        <div class="wh-card-field">
+          <div class="wh-card-field-label">ПОЛУЧАТЕЛЬ</div>
+          <div class="wh-card-field-val wh-card-recipient">${recipient}</div>
+        </div>
+      </div>
+      <div class="wh-card-bottom">
+        <span class="wh-card-time">${wh.time}</span>
+        <button class="wh-card-copy">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Скопировать
+        </button>
+      </div>`;
+
+    card.querySelector('.wh-card-copy').addEventListener('click', () => {
+      copyText(textToCopy);
+      haptic('medium');
+    });
+
+    panel.appendChild(card);
+  });
+}
+
 function setupWarehouseTabs() {
   const tabs = document.querySelectorAll('.i-wh-tab');
   if (!tabs.length) return;
@@ -1701,6 +1759,7 @@ async function init() {
     }
     setupCalc();
     setupWarehouseTabs();
+    injectWarehouseCards();
     setupDeliveryModal();
     setupPullToRefresh();
     if (state.user.is_admin) {
