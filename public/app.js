@@ -1464,6 +1464,54 @@ async function run() {
 run();`;
 }
 
+/* ── Onboarding ──────────────────────────────────────────────────── */
+function showOnboarding() {
+  const el = document.getElementById('onboarding');
+  if (!el) return;
+
+  el.style.display = 'flex';
+  haptic('light');
+
+  const inner = document.getElementById('ob-slides-inner');
+  const dots  = document.querySelectorAll('.ob-dot');
+  const total = dots.length;
+  let cur = 0;
+
+  function goTo(n) {
+    cur = n;
+    inner.style.transform = `translateX(-${cur * 100}%)`;
+    dots.forEach((d, i) => d.classList.toggle('active', i === cur));
+    const nextBtn = document.getElementById('ob-next');
+    if (nextBtn) nextBtn.textContent = cur === total - 1 ? 'Начать' : 'Далее';
+    const skipBtn = document.getElementById('ob-skip');
+    if (skipBtn) skipBtn.style.opacity = cur === total - 1 ? '0' : '1';
+    haptic('light');
+  }
+
+  function finish() {
+    localStorage.setItem('monarc_onboarded', '1');
+    el.classList.add('ob-out');
+    setTimeout(() => { el.style.display = 'none'; el.classList.remove('ob-out'); }, 380);
+    haptic('medium');
+  }
+
+  document.getElementById('ob-next')?.addEventListener('click', () => {
+    if (cur < total - 1) goTo(cur + 1); else finish();
+  });
+  document.getElementById('ob-skip')?.addEventListener('click', finish);
+
+  // Swipe support
+  let touchStartX = 0;
+  el.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  el.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) {
+      if (dx < 0 && cur < total - 1) goTo(cur + 1);
+      else if (dx > 0 && cur > 0) goTo(cur - 1);
+    }
+  }, { passive: true });
+}
+
 /* ── Init ────────────────────────────────────────────────────────── */
 async function init() {
   if (!tg?.initData) {
@@ -1546,6 +1594,7 @@ async function init() {
       });
     } else {
       document.getElementById('btn-add-client').style.display = 'flex';
+      if (!localStorage.getItem('monarc_onboarded')) showOnboarding();
     }
 
     document.getElementById('my-id-value').textContent = state.user.id;
