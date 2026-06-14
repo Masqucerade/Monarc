@@ -138,6 +138,46 @@ function resizeImage(file, maxW, maxH, quality) {
   });
 }
 
+/* ── Status Progress Bar ─────────────────────────────────────────── */
+const STATUS_ORDER = ['pending', 'received', 'processing', 'shipped', 'ready', 'delivered'];
+
+const STATUS_DOT_COLOR = {
+  pending:    '#fbbf24',
+  received:   '#fb923c',
+  processing: '#94a3b8',
+  shipped:    '#60a5fa',
+  ready:      '#4ade80',
+  delivered:  '#64748b',
+};
+const STATUS_DOT_GLOW = {
+  pending:    'rgba(251,191,36,0.5)',
+  received:   'rgba(251,146,60,0.5)',
+  processing: 'rgba(148,163,184,0.4)',
+  shipped:    'rgba(96,165,250,0.5)',
+  ready:      'rgba(74,222,128,0.5)',
+  delivered:  'rgba(100,116,139,0.3)',
+};
+
+function statusProgressBar(status) {
+  const cur = STATUS_ORDER.indexOf(status);
+  if (cur === -1) return '';
+  const color = STATUS_DOT_COLOR[status] || '#fff';
+  const glow  = STATUS_DOT_GLOW[status]  || 'rgba(255,255,255,0.3)';
+  const dots = STATUS_ORDER.map((_, i) => {
+    if (i === cur) {
+      return `<div class="pkg-prog-dot pkg-prog-cur" style="background:${color};box-shadow:0 0 7px ${glow}"></div>`;
+    }
+    if (i < cur) return `<div class="pkg-prog-dot pkg-prog-done"></div>`;
+    return `<div class="pkg-prog-dot"></div>`;
+  });
+  const parts = [];
+  dots.forEach((d, i) => {
+    parts.push(d);
+    if (i < dots.length - 1) parts.push(`<div class="pkg-prog-line${i < cur ? ' pkg-prog-line-done' : ''}"></div>`);
+  });
+  return `<div class="pkg-progress">${parts.join('')}</div>`;
+}
+
 /* ── Package Card ────────────────────────────────────────────────── */
 function pkgCard(p, isAdmin) {
   const country = p.country || 'eu';
@@ -252,6 +292,7 @@ function pkgCard(p, isAdmin) {
         ${statusBadge(p.status)}
       </div>
       <div class="pkg-country"><span>${c.flag}</span>${c.name}</div>
+      ${statusProgressBar(p.status)}
       ${p.item_name ? `<div class="pkg-item-name">${p.item_name}</div>` : ''}
       ${detailsRow}
       ${photoBlock}
@@ -1464,6 +1505,64 @@ async function run() {
 run();`;
 }
 
+/* ── Pull-to-refresh ─────────────────────────────────────────────── */
+function setupPullToRefresh() {
+  const scroller = document.getElementById('content');
+  const ptr      = document.getElementById('ptr-indicator');
+  if (!ptr || !scroller) return;
+
+  const THRESHOLD = 70;
+  let startY = 0, dist = 0, active = false, refreshing = false;
+
+  function setPtrPos(pull) {
+    // pull: 0 = hidden above, 1 = fully visible
+    const y = -52 + Math.min(pull, 1.2) * 64;
+    ptr.style.transform = `translateX(-50%) translateY(${y}px)`;
+    ptr.style.opacity   = Math.min(pull * 1.5, 1);
+  }
+
+  scroller.addEventListener('touchstart', e => {
+    if (scroller.scrollTop === 0 && !refreshing) {
+      startY = e.touches[0].clientY;
+      active = true;
+      dist   = 0;
+      ptr.style.transition = 'none';
+    }
+  }, { passive: true });
+
+  scroller.addEventListener('touchmove', e => {
+    if (!active || refreshing) return;
+    dist = Math.max(0, e.touches[0].clientY - startY);
+    if (dist > 0) {
+      setPtrPos(dist / THRESHOLD);
+      ptr.classList.toggle('ptr-ready', dist >= THRESHOLD);
+    }
+  }, { passive: true });
+
+  scroller.addEventListener('touchend', () => {
+    if (!active) return;
+    active = false;
+    ptr.style.transition = '';
+
+    if (dist >= THRESHOLD && !refreshing) {
+      refreshing = true;
+      ptr.classList.add('ptr-spinning');
+      ptr.classList.remove('ptr-ready');
+      setPtrPos(1);
+      haptic('medium');
+      loadPackages().finally(() => {
+        refreshing = false;
+        ptr.classList.remove('ptr-spinning');
+        setPtrPos(0);
+      });
+    } else {
+      ptr.classList.remove('ptr-ready');
+      setPtrPos(0);
+    }
+    dist = 0;
+  }, { passive: true });
+}
+
 /* ── Onboarding ──────────────────────────────────────────────────── */
 function showOnboarding() {
   const el = document.getElementById('onboarding');
@@ -1638,6 +1737,7 @@ async function init() {
     setupCalc();
     setupWarehouseTabs();
     setupDeliveryModal();
+    setupPullToRefresh();
     if (state.user.is_admin) {
       loadPaymentTemplates(); setupTemplateMgmt();
       loadClientTemplates();  setupClientMgmt();
