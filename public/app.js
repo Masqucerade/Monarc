@@ -648,36 +648,43 @@ async function loadRates() {
 
 /* ── Warehouse tabs ──────────────────────────────────────────────── */
 /* ── Warehouse Cards ─────────────────────────────────────────────── */
-const WAREHOUSE_CARDS = {
-  it: { flag: '🇮🇹', code: 'EU · IT', addr: 'Parma (PR), Italia',       time: '⏱ 10–15 дней' },
-  gb: { flag: '🇬🇧', code: 'EU · GB', addr: 'United Kingdom',            time: '⏱ ~2 недели'  },
-  cn: { flag: '🇨🇳', code: 'AS · CN', addr: 'Beijing, China',            time: '⏱ 17–25 дней' },
-  jp: { flag: '🇯🇵', code: 'AS · JP', addr: 'Katano, Osaka, Japan',      time: '⏱ 2–4 нед.'   },
-};
+const WAREHOUSE_CARDS = [
+  { key: 'it', flag: '🇮🇹', code: 'EU · IT', name: 'Италия',         addr: 'Parma (PR), Italia',     time: '10–15 дней', glow: '251,191,36'  },
+  { key: 'gb', flag: '🇬🇧', code: 'EU · GB', name: 'UK',             addr: 'United Kingdom',         time: '~2 недели',  glow: '59,130,246'  },
+  { key: 'cn', flag: '🇨🇳', code: 'AS · CN', name: 'Китай',          addr: 'Beijing, China',         time: '17–25 дней', glow: '239,68,68'   },
+  { key: 'jp', flag: '🇯🇵', code: 'AS · JP', name: 'Япония',         addr: 'Katano, Osaka, Japan',   time: '2–4 нед.',   glow: '236,72,153'  },
+];
 
 function injectWarehouseCards() {
-  const user = state.user;
+  const scroll = document.getElementById('wh-cards-scroll');
+  const dotsEl = document.getElementById('wh-cards-dots');
+  if (!scroll || scroll.children.length) return;
+
+  const user        = state.user;
   const firstName   = (user?.name || 'Клиент').split(' ')[0];
   const recipientId = user?.username ? `@${user.username}` : `ID ${user?.id || ''}`;
 
-  Object.entries(WAREHOUSE_CARDS).forEach(([key, wh]) => {
-    const panel = document.getElementById(`wh-${key}`);
-    if (!panel || panel.querySelector('.wh-card')) return;
-
+  WAREHOUSE_CARDS.forEach((wh, idx) => {
     const recipient  = `${firstName} / Monarc / ${recipientId}`;
     const textToCopy = `Получатель: ${recipient}\nАдрес: ${wh.addr}`;
 
     const card = document.createElement('div');
     card.className = 'wh-card';
+    card.dataset.whIdx = idx;
+    card.style.setProperty('--glow', wh.glow);
     card.innerHTML = `
+      <div class="wh-card-shine"></div>
+      <div class="wh-card-noise"></div>
       <div class="wh-card-top">
-        <div class="wh-card-brand">
+        <div>
           <span class="wh-card-flag">${wh.flag}</span>
           <span class="wh-card-brand-name">MONARC CARGO</span>
         </div>
         <span class="wh-card-code">${wh.code}</span>
       </div>
-      <div class="wh-card-chip"></div>
+      <div class="wh-card-chip">
+        <div class="wh-card-chip-lines"></div>
+      </div>
       <div class="wh-card-fields">
         <div class="wh-card-field">
           <div class="wh-card-field-label">АДРЕС СКЛАДА</div>
@@ -689,20 +696,64 @@ function injectWarehouseCards() {
         </div>
       </div>
       <div class="wh-card-bottom">
-        <span class="wh-card-time">${wh.time}</span>
+        <span class="wh-card-time">⏱ ${wh.time}</span>
         <button class="wh-card-copy">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           Скопировать
         </button>
       </div>`;
 
-    card.querySelector('.wh-card-copy').addEventListener('click', () => {
+    // Copy
+    card.querySelector('.wh-card-copy').addEventListener('click', e => {
+      e.stopPropagation();
       copyText(textToCopy);
       haptic('medium');
     });
 
-    panel.appendChild(card);
+    // 3D tilt + shine follow on touch
+    const shine = card.querySelector('.wh-card-shine');
+    card.addEventListener('touchstart', () => {
+      card.style.transition = 'transform 0.05s ease';
+    }, { passive: true });
+    card.addEventListener('touchmove', e => {
+      const t   = e.touches[0];
+      const r   = card.getBoundingClientRect();
+      const x   = (t.clientX - r.left) / r.width;
+      const y   = (t.clientY - r.top)  / r.height;
+      const tX  = (x - 0.5) * 14;
+      const tY  = (y - 0.5) * -10;
+      card.style.transform = `perspective(700px) rotateY(${tX}deg) rotateX(${tY}deg) scale(1.02)`;
+      shine.style.background = `radial-gradient(circle at ${x*100}% ${y*100}%, rgba(255,255,255,0.18) 0%, transparent 65%)`;
+    }, { passive: true });
+    card.addEventListener('touchend', () => {
+      card.style.transition = 'transform 0.4s ease';
+      card.style.transform  = '';
+      shine.style.background = '';
+    }, { passive: true });
+
+    scroll.appendChild(card);
   });
+
+  // Dot indicators
+  if (dotsEl) {
+    dotsEl.innerHTML = WAREHOUSE_CARDS.map((_, i) =>
+      `<div class="wh-dot${i === 0 ? ' active' : ''}" data-i="${i}"></div>`
+    ).join('');
+
+    // Update dots on scroll
+    scroll.addEventListener('scroll', () => {
+      const w   = scroll.offsetWidth;
+      const idx = Math.round(scroll.scrollLeft / w);
+      dotsEl.querySelectorAll('.wh-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+    }, { passive: true });
+
+    // Dot click → scroll to card
+    dotsEl.querySelectorAll('.wh-dot').forEach(dot => {
+      dot.addEventListener('click', () => {
+        scroll.scrollTo({ left: parseInt(dot.dataset.i) * scroll.offsetWidth, behavior: 'smooth' });
+      });
+    });
+  }
 }
 
 function setupWarehouseTabs() {
