@@ -1336,15 +1336,30 @@ body.theme-light .i-hero-logo {
 body.theme-light .i-hero-tag {
   background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.12); color: #334155;
 }
-body.theme-light .i-wh-content { background: #fff; border-color: rgba(0,0,0,0.08); }
-body.theme-light .i-wh-tab {
-  background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); color: #64748b;
+body.theme-light .i-section-label { color: #94a3b8; }
+body.theme-light .i-wh-content {
+  background: #fff;
+  border-color: rgba(0,0,0,0.1);
 }
-body.theme-light .i-wh-tab.active { background: #0f172a; color: #fff; }
+body.theme-light .i-wh-content::before { background: linear-gradient(90deg,transparent,rgba(0,0,0,0.08),transparent); }
+body.theme-light .i-wh-tab {
+  background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); color: #475569;
+}
+body.theme-light .i-wh-tab::before { background: none; }
+body.theme-light .i-wh-tab.active {
+  background: #fff;
+  border-color: rgba(0,0,0,0.2);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+body.theme-light .i-wh-tab.active .i-wh-tab-name { color: #0f172a; }
+body.theme-light .i-wh-location { color: #1e293b; }
+body.theme-light .i-wh-location svg { color: #475569; }
+body.theme-light .i-wh-desc { color: #475569; }
 body.theme-light .i-wh-time-badge {
   background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.1); color: #475569;
 }
 body.theme-light .i-wh-stores { color: #64748b; }
+body.theme-light .i-wh-note { color: #94a3b8; }
 body.theme-light .i-tl-dot { background: #0f172a; color: #fff; }
 body.theme-light .i-tl-line { background: rgba(0,0,0,0.1); }
 body.theme-light .i-contact-card {
