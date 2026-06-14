@@ -646,116 +646,6 @@ async function loadRates() {
   }
 }
 
-/* ── Warehouse tabs ──────────────────────────────────────────────── */
-/* ── Warehouse Cards ─────────────────────────────────────────────── */
-const WAREHOUSE_CARDS = [
-  { key: 'it', flag: '🇮🇹', code: 'EU · IT', name: 'Италия',         addr: 'Parma (PR), Italia',     time: '10–15 дней', glow: '251,191,36'  },
-  { key: 'gb', flag: '🇬🇧', code: 'EU · GB', name: 'UK',             addr: 'United Kingdom',         time: '~2 недели',  glow: '59,130,246'  },
-  { key: 'cn', flag: '🇨🇳', code: 'AS · CN', name: 'Китай',          addr: 'Beijing, China',         time: '17–25 дней', glow: '239,68,68'   },
-  { key: 'jp', flag: '🇯🇵', code: 'AS · JP', name: 'Япония',         addr: 'Katano, Osaka, Japan',   time: '2–4 нед.',   glow: '236,72,153'  },
-];
-
-function injectWarehouseCards() {
-  const scroll = document.getElementById('wh-cards-scroll');
-  const dotsEl = document.getElementById('wh-cards-dots');
-  if (!scroll || scroll.children.length) return;
-
-  const user        = state.user;
-  const firstName   = (user?.name || 'Клиент').split(' ')[0];
-  const recipientId = user?.username ? `@${user.username}` : `ID ${user?.id || ''}`;
-
-  WAREHOUSE_CARDS.forEach((wh, idx) => {
-    const recipient  = `${firstName} / Monarc / ${recipientId}`;
-    const textToCopy = `Получатель: ${recipient}\nАдрес: ${wh.addr}`;
-
-    const card = document.createElement('div');
-    card.className = 'wh-card';
-    card.dataset.whIdx = idx;
-    card.style.setProperty('--glow', wh.glow);
-    card.innerHTML = `
-      <div class="wh-card-shine"></div>
-      <div class="wh-card-noise"></div>
-      <div class="wh-card-top">
-        <div>
-          <span class="wh-card-flag">${wh.flag}</span>
-          <span class="wh-card-brand-name">MONARC CARGO</span>
-        </div>
-        <span class="wh-card-code">${wh.code}</span>
-      </div>
-      <div class="wh-card-chip">
-        <div class="wh-card-chip-lines"></div>
-      </div>
-      <div class="wh-card-fields">
-        <div class="wh-card-field">
-          <div class="wh-card-field-label">АДРЕС СКЛАДА</div>
-          <div class="wh-card-field-val">${wh.addr}</div>
-        </div>
-        <div class="wh-card-field">
-          <div class="wh-card-field-label">ПОЛУЧАТЕЛЬ</div>
-          <div class="wh-card-field-val wh-card-recipient">${recipient}</div>
-        </div>
-      </div>
-      <div class="wh-card-bottom">
-        <span class="wh-card-time">⏱ ${wh.time}</span>
-        <button class="wh-card-copy">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          Скопировать
-        </button>
-      </div>`;
-
-    // Copy
-    card.querySelector('.wh-card-copy').addEventListener('click', e => {
-      e.stopPropagation();
-      copyText(textToCopy);
-      haptic('medium');
-    });
-
-    // 3D tilt + shine follow on touch
-    const shine = card.querySelector('.wh-card-shine');
-    card.addEventListener('touchstart', () => {
-      card.style.transition = 'transform 0.05s ease';
-    }, { passive: true });
-    card.addEventListener('touchmove', e => {
-      const t   = e.touches[0];
-      const r   = card.getBoundingClientRect();
-      const x   = (t.clientX - r.left) / r.width;
-      const y   = (t.clientY - r.top)  / r.height;
-      const tX  = (x - 0.5) * 14;
-      const tY  = (y - 0.5) * -10;
-      card.style.transform = `perspective(700px) rotateY(${tX}deg) rotateX(${tY}deg) scale(1.02)`;
-      shine.style.background = `radial-gradient(circle at ${x*100}% ${y*100}%, rgba(255,255,255,0.18) 0%, transparent 65%)`;
-    }, { passive: true });
-    card.addEventListener('touchend', () => {
-      card.style.transition = 'transform 0.4s ease';
-      card.style.transform  = '';
-      shine.style.background = '';
-    }, { passive: true });
-
-    scroll.appendChild(card);
-  });
-
-  // Dot indicators
-  if (dotsEl) {
-    dotsEl.innerHTML = WAREHOUSE_CARDS.map((_, i) =>
-      `<div class="wh-dot${i === 0 ? ' active' : ''}" data-i="${i}"></div>`
-    ).join('');
-
-    // Update dots on scroll
-    scroll.addEventListener('scroll', () => {
-      const w   = scroll.offsetWidth;
-      const idx = Math.round(scroll.scrollLeft / w);
-      dotsEl.querySelectorAll('.wh-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
-    }, { passive: true });
-
-    // Dot click → scroll to card
-    dotsEl.querySelectorAll('.wh-dot').forEach(dot => {
-      dot.addEventListener('click', () => {
-        scroll.scrollTo({ left: parseInt(dot.dataset.i) * scroll.offsetWidth, behavior: 'smooth' });
-      });
-    });
-  }
-}
-
 function setupWarehouseTabs() {
   const tabs = document.querySelectorAll('.i-wh-tab');
   if (!tabs.length) return;
@@ -1579,6 +1469,31 @@ async function run() {
 run();`;
 }
 
+/* ── Theme ───────────────────────────────────────────────────────── */
+function initTheme() {
+  const saved = localStorage.getItem('monarc_theme');
+  if (saved === 'light') applyTheme('light');
+
+  document.getElementById('btn-theme')?.addEventListener('click', () => {
+    const isLight = document.body.classList.contains('theme-light');
+    applyTheme(isLight ? 'dark' : 'light');
+    haptic('light');
+  });
+}
+
+function applyTheme(theme) {
+  const isLight = theme === 'light';
+  document.body.classList.toggle('theme-light', isLight);
+  localStorage.setItem('monarc_theme', theme);
+  const moon = document.querySelector('.icon-moon');
+  const sun  = document.querySelector('.icon-sun');
+  if (moon) moon.style.display = isLight ? 'none'  : '';
+  if (sun)  sun.style.display  = isLight ? ''      : 'none';
+  // Telegram header colour
+  tg?.setHeaderColor?.(isLight ? '#f1f5f9' : '#08080f');
+  tg?.setBackgroundColor?.(isLight ? '#f1f5f9' : '#08080f');
+}
+
 /* ── Pull-to-refresh ─────────────────────────────────────────────── */
 function setupPullToRefresh() {
   const scroller = document.getElementById('content');
@@ -1639,6 +1554,7 @@ function setupPullToRefresh() {
 
 /* ── Onboarding ──────────────────────────────────────────────────── */
 function showOnboarding() {
+  if (localStorage.getItem('monarc_onboarded')) return;
   const el = document.getElementById('onboarding');
   if (!el) return;
 
@@ -1687,6 +1603,7 @@ function showOnboarding() {
 
 /* ── Init ────────────────────────────────────────────────────────── */
 async function init() {
+  initTheme();
   if (!tg?.initData) {
     await new Promise(r => setTimeout(r, 1200));
     document.getElementById('loading').innerHTML = `
@@ -1810,7 +1727,6 @@ async function init() {
     }
     setupCalc();
     setupWarehouseTabs();
-    injectWarehouseCards();
     setupDeliveryModal();
     setupPullToRefresh();
     if (state.user.is_admin) {
