@@ -383,6 +383,9 @@ function renderInvoices() {
   }
 
   list.innerHTML = html;
+  list.querySelectorAll('.inv-card').forEach((card, i) => {
+    card.style.animationDelay = `${Math.min(i, 8) * 55}ms`;
+  });
 
   document.getElementById('inv-archive-btn')?.addEventListener('click', () => {
     const al = document.getElementById('inv-archive-list');
@@ -518,6 +521,9 @@ function renderPackages() {
   }
 
   list.innerHTML = html;
+  list.querySelectorAll('.pkg-card').forEach((card, i) => {
+    card.style.animationDelay = `${Math.min(i, 8) * 55}ms`;
+  });
 
   document.getElementById('pkg-archive-btn')?.addEventListener('click', () => {
     const al = document.getElementById('pkg-archive-list');
