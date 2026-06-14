@@ -138,46 +138,6 @@ function resizeImage(file, maxW, maxH, quality) {
   });
 }
 
-/* ── Status Progress Bar ─────────────────────────────────────────── */
-const STATUS_ORDER = ['pending', 'received', 'processing', 'shipped', 'ready', 'delivered'];
-
-const STATUS_DOT_COLOR = {
-  pending:    '#fbbf24',
-  received:   '#fb923c',
-  processing: '#94a3b8',
-  shipped:    '#60a5fa',
-  ready:      '#4ade80',
-  delivered:  '#64748b',
-};
-const STATUS_DOT_GLOW = {
-  pending:    'rgba(251,191,36,0.5)',
-  received:   'rgba(251,146,60,0.5)',
-  processing: 'rgba(148,163,184,0.4)',
-  shipped:    'rgba(96,165,250,0.5)',
-  ready:      'rgba(74,222,128,0.5)',
-  delivered:  'rgba(100,116,139,0.3)',
-};
-
-function statusProgressBar(status) {
-  const cur = STATUS_ORDER.indexOf(status);
-  if (cur === -1) return '';
-  const color = STATUS_DOT_COLOR[status] || '#fff';
-  const glow  = STATUS_DOT_GLOW[status]  || 'rgba(255,255,255,0.3)';
-  const dots = STATUS_ORDER.map((_, i) => {
-    if (i === cur) {
-      return `<div class="pkg-prog-dot pkg-prog-cur" style="background:${color};box-shadow:0 0 7px ${glow}"></div>`;
-    }
-    if (i < cur) return `<div class="pkg-prog-dot pkg-prog-done"></div>`;
-    return `<div class="pkg-prog-dot"></div>`;
-  });
-  const parts = [];
-  dots.forEach((d, i) => {
-    parts.push(d);
-    if (i < dots.length - 1) parts.push(`<div class="pkg-prog-line${i < cur ? ' pkg-prog-line-done' : ''}"></div>`);
-  });
-  return `<div class="pkg-progress">${parts.join('')}</div>`;
-}
-
 /* ── Package Card ────────────────────────────────────────────────── */
 function pkgCard(p, isAdmin) {
   const country = p.country || 'eu';
@@ -292,7 +252,6 @@ function pkgCard(p, isAdmin) {
         ${statusBadge(p.status)}
       </div>
       <div class="pkg-country"><span>${c.flag}</span>${c.name}</div>
-      ${statusProgressBar(p.status)}
       ${p.item_name ? `<div class="pkg-item-name">${p.item_name}</div>` : ''}
       ${detailsRow}
       ${photoBlock}
