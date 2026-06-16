@@ -768,7 +768,8 @@ function openAddModal() {
   document.getElementById('modal-title').textContent = 'Добавить посылку';
   document.getElementById('pkg-form').reset();
   document.getElementById('pkg-id').value = '';
-  document.getElementById('pkg-dup-hint').style.display = 'none';
+  const _hint1 = document.getElementById('pkg-dup-hint');
+  if (_hint1) _hint1.style.display = 'none';
   document.getElementById('pkg-status').value = 'received';
   document.getElementById('pkg-country').value = 'eu';
   updateAdminTariffSelector('eu');
@@ -779,7 +780,8 @@ function openAddModal() {
 function openEditModal(pkg) {
   state.editingId = pkg.id;
   document.getElementById('modal-title').textContent = 'Редактировать посылку';
-  document.getElementById('pkg-dup-hint').style.display = 'none';
+  const _hint2 = document.getElementById('pkg-dup-hint');
+  if (_hint2) _hint2.style.display = 'none';
   document.getElementById('pkg-id').value = pkg.id;
   document.getElementById('pkg-tracking').value = pkg.tracking_number;
   document.getElementById('pkg-item-name').value = pkg.item_name || '';
