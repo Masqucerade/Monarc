@@ -539,6 +539,7 @@ async function loadStats() {
   try {
     const s = await apiFetch('/api/stats');
     document.getElementById('stat-total').textContent = s.total;
+    document.getElementById('stat-pending').textContent = s.pending;
     document.getElementById('stat-received').textContent = s.received;
     document.getElementById('stat-shipped').textContent = s.shipped;
     document.getElementById('stat-ready').textContent = s.ready;
