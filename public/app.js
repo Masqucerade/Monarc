@@ -474,6 +474,10 @@ function skeletonCards(n = 3) {
 
 /* ── Packages Tab ────────────────────────────────────────────────── */
 async function loadPackages() {
+  // Запоминаем статусы до обновления — для анимации изменений
+  const prevStatuses = {};
+  state.packages.forEach(p => { prevStatuses[p.id] = p.status; });
+
   const list = document.getElementById('packages-list');
   list.innerHTML = skeletonCards();
   try {
@@ -484,10 +488,28 @@ async function loadPackages() {
     if (params.toString()) url += '?' + params.toString();
     state.packages = await apiFetch(url);
     renderPackages();
+    animateChangedBadges(prevStatuses);
     if (state.user?.is_admin) loadStats();
   } catch (e) {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">${e.message}</div></div>`;
   }
+}
+
+function animateChangedBadges(prev) {
+  if (!Object.keys(prev).length) return;
+  requestAnimationFrame(() => {
+    state.packages.forEach(pkg => {
+      if (prev[pkg.id] && prev[pkg.id] !== pkg.status) {
+        const badge = document.querySelector(`.pkg-card[data-id="${pkg.id}"] .status-badge`);
+        if (badge) {
+          badge.classList.remove('badge-pop');
+          void badge.offsetWidth; // reflow чтобы animation перезапустилась
+          badge.classList.add('badge-pop');
+          badge.addEventListener('animationend', () => badge.classList.remove('badge-pop'), { once: true });
+        }
+      }
+    });
+  });
 }
 
 function renderPackages() {
@@ -745,6 +767,7 @@ function openAddModal() {
   document.getElementById('modal-title').textContent = 'Добавить посылку';
   document.getElementById('pkg-form').reset();
   document.getElementById('pkg-id').value = '';
+  document.getElementById('pkg-dup-hint').style.display = 'none';
   document.getElementById('pkg-status').value = 'received';
   document.getElementById('pkg-country').value = 'eu';
   updateAdminTariffSelector('eu');
@@ -755,6 +778,7 @@ function openAddModal() {
 function openEditModal(pkg) {
   state.editingId = pkg.id;
   document.getElementById('modal-title').textContent = 'Редактировать посылку';
+  document.getElementById('pkg-dup-hint').style.display = 'none';
   document.getElementById('pkg-id').value = pkg.id;
   document.getElementById('pkg-tracking').value = pkg.tracking_number;
   document.getElementById('pkg-item-name').value = pkg.item_name || '';
@@ -778,6 +802,25 @@ function openEditModal(pkg) {
 // Country change in admin form
 document.getElementById('pkg-country')?.addEventListener('change', e => {
   updateAdminTariffSelector(e.target.value);
+});
+
+// Duplicate detect — инлайн при вводе трек-номера
+document.getElementById('pkg-tracking')?.addEventListener('input', e => {
+  const val = e.target.value.trim().toUpperCase();
+  const hint = document.getElementById('pkg-dup-hint');
+  if (!hint) return;
+  const editingId = state.editingId;
+  const dup = val.length > 2 && val !== 'NO'
+    ? state.packages.find(p => p.tracking_number === val && p.id !== editingId)
+    : null;
+  if (dup) {
+    const who = dup.client_name || (dup.client_username ? '@' + dup.client_username : null) || 'без клиента';
+    const st  = STATUS[dup.status]?.label || dup.status;
+    hint.innerHTML = `⚠️ Уже есть: <b>${who}</b> · ${st}`;
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
 });
 
 function showModal(id) {
