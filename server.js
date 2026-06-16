@@ -874,8 +874,9 @@ app.delete('/api/invoices/:id', authMiddleware, (req, res) => {
 app.get('/api/stats', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
   const { packages } = readDB();
-  const stats = { total: packages.length, pending: 0, received: 0, processing: 0, shipped: 0, ready: 0, delivered: 0 };
+  const stats = { total: 0, pending: 0, received: 0, processing: 0, shipped: 0, ready: 0, delivered: 0 };
   packages.forEach(p => { if (stats[p.status] !== undefined) stats[p.status]++; });
+  stats.total = packages.length - stats.delivered;
   res.json(stats);
 });
 
