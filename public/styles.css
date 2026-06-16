@@ -543,12 +543,11 @@ body::after {
 /* ── Status Badges ─────────────────────────────────────────────── */
 /* ── Status badge animation ──────────────────────────────────────── */
 @keyframes badge-pop {
-  0%   { transform: scale(1);    box-shadow: 0 0  0px currentColor; }
-  15%  { transform: scale(1.35); box-shadow: 0 0 18px currentColor; opacity: 0.85; }
-  40%  { transform: scale(0.92); box-shadow: 0 0  6px currentColor; }
-  65%  { transform: scale(1.12); box-shadow: 0 0 10px currentColor; }
-  85%  { transform: scale(0.98); }
-  100% { transform: scale(1);    box-shadow: 0 0  0px currentColor; }
+  0%   { transform: scale(1);    box-shadow: 0 0 0px currentColor; }
+  20%  { transform: scale(1.12); box-shadow: 0 0 8px currentColor; }
+  55%  { transform: scale(0.97); }
+  80%  { transform: scale(1.03); }
+  100% { transform: scale(1);    box-shadow: 0 0 0px currentColor; }
 }
 
 .status-badge {
@@ -557,7 +556,7 @@ body::after {
   transform-origin: center;
 }
 .status-badge.badge-pop {
-  animation: badge-pop 0.8s ease-out forwards;
+  animation: badge-pop 0.55s ease-out forwards;
 }
 
 /* ── Duplicate hint ──────────────────────────────────────────────── */

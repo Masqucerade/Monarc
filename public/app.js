@@ -1779,6 +1779,14 @@ async function init() {
     if (state.user.is_admin) {
       loadPaymentTemplates(); setupTemplateMgmt();
       loadClientTemplates();  setupClientMgmt();
+    } else {
+      // Клиент: авто-обновление каждые 30 сек — без перезагрузки видны новые статусы
+      setInterval(() => {
+        if (document.getElementById('modal-overlay')?.style.display === 'none' ||
+            !document.getElementById('modal-overlay')?.style.display) {
+          loadPackages();
+        }
+      }, 30000);
     }
   } catch (e) {
     document.getElementById('loading').innerHTML = `
