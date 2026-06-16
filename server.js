@@ -1239,7 +1239,9 @@ async function sendAutoBackup() {
 
     const form = new FormData();
     form.append('chat_id', ADMIN_ID);
-    form.append('caption', `🗄 <b>Авто-бэкап Monarc</b>\n🕐 ${label} (МСК)\n📊 Посылок: <b>${data.packages.length}</b>`);
+    const invoices = (data.invoices || []).length;
+    const env = process.env.NODE_ENV || 'local';
+    form.append('caption', `🗄 <b>Авто-бэкап Monarc</b>\n🕐 ${label} (МСК)\n📊 Посылок: <b>${data.packages.length}</b> · Счетов: <b>${invoices}</b>\n🖥 ${env} · ${DB_FILE}`);
     form.append('parse_mode', 'HTML');
     form.append('document', new Blob([json], { type: 'application/json' }), filename);
 
