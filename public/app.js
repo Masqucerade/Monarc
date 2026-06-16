@@ -78,6 +78,7 @@ async function apiFetch(path, options = {}) {
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
 function fmt(n) { return Number(n).toLocaleString('ru-RU'); }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtDate(str) {
   return new Date(str).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
 }
@@ -186,7 +187,7 @@ function pkgCard(p, isAdmin) {
   const clientRow = isAdmin && (p.client_name || p.client_username || p.client_id)
     ? `<div class="pkg-client">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        ${p.client_name || ''}${p.client_username ? ' @' + p.client_username : ''}${!p.client_name && !p.client_username && p.client_id ? 'ID: ' + p.client_id : ''}
+        ${esc(p.client_name)}${p.client_username ? ' @' + esc(p.client_username) : ''}${!p.client_name && !p.client_username && p.client_id ? 'ID: ' + esc(p.client_id) : ''}
         ${p.source === 'client' ? '<span class="pkg-source-label">от клиента</span>' : ''}
       </div>`
     : '';
@@ -242,9 +243,9 @@ function pkgCard(p, isAdmin) {
           <div class="pkg-track-row">
             ${p.no_tracking
               ? `<span class="pkg-track-num pkg-no-track">Трек не получен</span>
-                 ${isAdmin ? `<span class="pkg-no-track-id">${p.tracking_number}</span>` : ''}`
-              : `<span class="pkg-track-num">${p.tracking_number}</span>
-                 <button class="copy-btn" data-copy="${p.tracking_number}">
+                 ${isAdmin ? `<span class="pkg-no-track-id">${esc(p.tracking_number)}</span>` : ''}`
+              : `<span class="pkg-track-num">${esc(p.tracking_number)}</span>
+                 <button class="copy-btn" data-copy="${esc(p.tracking_number)}">
                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                  </button>`}
           </div>
@@ -252,11 +253,11 @@ function pkgCard(p, isAdmin) {
         ${statusBadge(p.status)}
       </div>
       <div class="pkg-country"><span>${c.flag}</span>${c.name}</div>
-      ${p.item_name ? `<div class="pkg-item-name">${p.item_name}</div>` : ''}
+      ${p.item_name ? `<div class="pkg-item-name">${esc(p.item_name)}</div>` : ''}
       ${detailsRow}
       ${photoBlock}
       ${clientRow}
-      ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;position:relative;z-index:1">${p.description}</div>` : ''}
+      ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;position:relative;z-index:1">${esc(p.description)}</div>` : ''}
       ${deliveryBlock}
       <div style="font-size:11px;color:var(--text3);position:relative;z-index:1">Добавлено: ${fmtDate(p.created_at)}</div>
       ${actionsRow}
@@ -282,7 +283,7 @@ function invoiceCard(inv, isAdmin) {
   const detailsBlock = inv.payment_details
     ? `<div class="inv-details-block">
         <div class="inv-details-label">📋 Реквизиты</div>
-        <div class="inv-details-text">${inv.payment_details.replace(/\n/g, '<br>')}</div>
+        <div class="inv-details-text">${esc(inv.payment_details).replace(/\n/g, '<br>')}</div>
       </div>`
     : '';
 
@@ -321,7 +322,7 @@ function invoiceCard(inv, isAdmin) {
         </div>
         <span class="inv-badge ${st.cls}">${st.label}</span>
       </div>
-      <div class="inv-desc">${inv.description}</div>
+      <div class="inv-desc">${esc(inv.description)}</div>
       ${clientRow}
       ${detailsBlock}
       <div class="inv-date">Выставлен: ${fmtDate(inv.created_at)}</div>
@@ -497,9 +498,9 @@ async function loadPackages() {
 
 function animateChangedBadges(prev) {
   if (!Object.keys(prev).length) return;
-  // setTimeout 0 гарантирует что DOM уже перерисован после renderPackages()
+  const pkgs = state.packages.slice(); // snapshot до setTimeout — защита от race condition
   setTimeout(() => {
-    state.packages.forEach(pkg => {
+    pkgs.forEach(pkg => {
       if (prev[pkg.id] && prev[pkg.id] !== pkg.status) {
         const badge = document.querySelector(`.pkg-card[data-id="${pkg.id}"] .status-badge`);
         if (badge) {
@@ -625,13 +626,18 @@ async function doTrack(number) {
 }
 
 async function claimPackage(id) {
+  const btn = document.querySelector(`[data-claim-id="${id}"]`);
+  if (btn) { btn.disabled = true; }
   try {
     await apiFetch(`/api/claim/${id}`, { method: 'POST' });
     toast('Посылка привязана к вашему аккаунту', 'success');
     document.getElementById('track-result').innerHTML = '';
     document.getElementById('track-input').value = '';
     loadPackages();
-  } catch (e) { toast(e.message, 'error'); }
+  } catch (e) {
+    toast(e.message, 'error');
+    if (btn) { btn.disabled = false; }
+  }
 }
 
 /* ── Rates Tab ───────────────────────────────────────────────────── */
@@ -1782,10 +1788,9 @@ async function init() {
     } else {
       // Клиент: авто-обновление каждые 30 сек — без перезагрузки видны новые статусы
       setInterval(() => {
-        if (document.getElementById('modal-overlay')?.style.display === 'none' ||
-            !document.getElementById('modal-overlay')?.style.display) {
-          loadPackages();
-        }
+        const anyOpen = ['modal-overlay','client-modal-overlay','invoice-modal-overlay','delivery-modal-overlay']
+          .some(id => document.getElementById(id)?.style.display === 'flex');
+        if (!anyOpen) loadPackages();
       }, 30000);
     }
   } catch (e) {
