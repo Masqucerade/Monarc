@@ -497,19 +497,20 @@ async function loadPackages() {
 
 function animateChangedBadges(prev) {
   if (!Object.keys(prev).length) return;
-  requestAnimationFrame(() => {
+  // setTimeout 0 гарантирует что DOM уже перерисован после renderPackages()
+  setTimeout(() => {
     state.packages.forEach(pkg => {
       if (prev[pkg.id] && prev[pkg.id] !== pkg.status) {
         const badge = document.querySelector(`.pkg-card[data-id="${pkg.id}"] .status-badge`);
         if (badge) {
           badge.classList.remove('badge-pop');
-          void badge.offsetWidth; // reflow чтобы animation перезапустилась
+          void badge.offsetWidth; // принудительный reflow → анимация стартует заново
           badge.classList.add('badge-pop');
           badge.addEventListener('animationend', () => badge.classList.remove('badge-pop'), { once: true });
         }
       }
     });
-  });
+  }, 50); // небольшая задержка после рендера
 }
 
 function renderPackages() {
