@@ -3,13 +3,20 @@ const ADMIN_ID = '885394476';
 
 const COUNTRIES = {
   eu: { flag: '🇪🇺', name: 'Европа'  },
+  gb: { flag: '🇬🇧', name: 'Великобритания' },
   cn: { flag: '🇨🇳', name: 'Китай'   },
   jp: { flag: '🇯🇵', name: 'Япония'  },
 };
 
 // Tariffs per country (for manual selection)
+// gb: фиксированная цена за коробку (£), не за кг
 const TARIFFS = {
   eu: null, // для публичного калькулятора — авто по весу
+  gb: [
+    { name: 'До 2 кг',  rate: 19,  fixed: true, label: '£19 / кор. · ~2 нед.'  },
+    { name: 'До 5 кг',  rate: 42,  fixed: true, label: '£42 / кор. · ~2 нед.'  },
+    { name: 'До 20 кг', rate: 118, fixed: true, label: '£118 / кор. · ~2 нед.' },
+  ],
   cn: [
     { name: 'Авиа',     rate: 1200, label: '1 200 ₽/кг · 20–25 дн.' },
     { name: 'Экспресс', rate: 3500, label: '3 500 ₽/кг · 1–6 дн.'   },
@@ -85,6 +92,12 @@ function fmtDate(str) {
 
 function calcRate(weight, country = 'eu') {
   if (!weight || weight <= 0) return { type: '—', rate: 0 };
+  if (country === 'gb') {
+    // фиксированная цена за коробку (£)
+    if (weight <= 2) return { type: 'До 2 кг',  rate: 19,  fixed: true };
+    if (weight <= 5) return { type: 'До 5 кг',  rate: 42,  fixed: true };
+    return                  { type: 'До 20 кг', rate: 118, fixed: true };
+  }
   if (country === 'cn') {
     if (weight >= 20) return { type: 'Наземный', rate: 800 };
     return { type: 'Авиа', rate: 1200 };
@@ -143,9 +156,10 @@ function resizeImage(file, maxW, maxH, quality) {
 function pkgCard(p, isAdmin) {
   const country = p.country || 'eu';
   const c = COUNTRIES[country] || COUNTRIES.eu;
+  const isGb = country === 'gb'; // UK — фикс. цена за коробку в £
   // Используем сохранённый тариф если он есть, иначе пересчитываем
   const r = (p.type && p.rate) ? { type: p.type, rate: p.rate } : calcRate(p.weight, country);
-  const total = p.total || (r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0);
+  const total = p.total || (r.rate > 0 ? (isGb ? r.rate : Math.round((p.weight || 0) * r.rate)) : 0);
   const isPending = p.status === 'pending';
 
   const shineEl = '';
@@ -155,8 +169,8 @@ function pkgCard(p, isAdmin) {
     : `<div class="pkg-details">
         <div class="pkg-detail-item"><div class="pkg-detail-label">Вес</div><div class="pkg-detail-val">${p.weight > 0 ? p.weight + ' кг' : 'Не указан'}</div></div>
         <div class="pkg-detail-item"><div class="pkg-detail-label">Тариф</div><div class="pkg-detail-val">${r.rate > 0 ? r.type : '—'}</div></div>
-        <div class="pkg-detail-item"><div class="pkg-detail-label">₽/кг</div><div class="pkg-detail-val">${r.rate > 0 ? fmt(r.rate) + ' ₽' : '—'}</div></div>
-        <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${total > 0 ? '~' + fmt(total) + ' ₽' : '—'}</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">${isGb ? '£/кор.' : '₽/кг'}</div><div class="pkg-detail-val">${r.rate > 0 ? (isGb ? '£' + fmt(r.rate) : fmt(r.rate) + ' ₽') : '—'}</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${total > 0 ? (isGb ? '~£' + fmt(total) : '~' + fmt(total) + ' ₽') : '—'}</div></div>
       </div>`;
 
   // Фото товара: админ видит сразу, клиент — кнопку «Посмотреть фото»
@@ -700,7 +714,8 @@ function setupCalc() {
 
   function renderTariffPills(country) {
     const tariffs = TARIFFS[country];
-    if (!tariffs) { tariffWrap.style.display = 'none'; state.calcTariff = null; return; }
+    // eu и gb — тариф определяется автоматически по весу
+    if (!tariffs || country === 'gb') { tariffWrap.style.display = 'none'; state.calcTariff = null; return; }
     state.calcTariff = tariffs[0];
     tariffWrap.style.display = 'flex';
     tariffPills.innerHTML = tariffs.map((t, i) => `
@@ -724,20 +739,23 @@ function setupCalc() {
     resultEl.style.display = 'none';
     if (!w || w <= 0) return;
 
+    const isGb = state.calcCountry === 'gb';
     let type, rate;
-    if (state.calcCountry === 'eu') {
-      const r = calcRate(w, 'eu');
+    if (state.calcCountry === 'eu' || isGb) {
+      const r = calcRate(w, state.calcCountry);
       type = r.type; rate = r.rate;
     } else {
       if (!state.calcTariff) return;
       type = state.calcTariff.name; rate = state.calcTariff.rate;
     }
 
-    const total = Math.round(w * rate);
+    const total = isGb ? rate : Math.round(w * rate);
     document.getElementById('calc-type').textContent = type;
-    document.getElementById('calc-kg').textContent = fmt(rate) + ' ₽/кг';
+    document.getElementById('calc-kg').textContent = isGb ? '£' + fmt(rate) + ' за коробку' : fmt(rate) + ' ₽/кг';
     document.getElementById('calc-w').textContent = w + ' кг';
-    document.getElementById('calc-total').textContent = fmt(total) + ' ₽';
+    // Для UK цена фиксированная за коробку — формула «× вес =» не нужна
+    resultEl.querySelectorAll('.calc-x, .calc-eq, #calc-w').forEach(el => { el.style.display = isGb ? 'none' : ''; });
+    document.getElementById('calc-total').textContent = isGb ? '~£' + fmt(total) : fmt(total) + ' ₽';
     resultEl.style.display = 'block';
   }
 
@@ -776,6 +794,8 @@ function openAddModal() {
   document.getElementById('pkg-id').value = '';
   const _hint1 = document.getElementById('pkg-dup-hint');
   if (_hint1) _hint1.style.display = 'none';
+  const _nt1 = document.getElementById('pkg-notrack-hint');
+  if (_nt1) _nt1.style.display = 'none';
   document.getElementById('pkg-status').value = 'received';
   document.getElementById('pkg-country').value = 'eu';
   updateAdminTariffSelector('eu');
@@ -790,6 +810,8 @@ function openEditModal(pkg) {
   if (_hint2) _hint2.style.display = 'none';
   document.getElementById('pkg-id').value = pkg.id;
   document.getElementById('pkg-tracking').value = pkg.tracking_number;
+  const noTrackHint = document.getElementById('pkg-notrack-hint');
+  if (noTrackHint) noTrackHint.style.display = pkg.no_tracking ? 'block' : 'none';
   document.getElementById('pkg-item-name').value = pkg.item_name || '';
   document.getElementById('pkg-weight').value = pkg.weight || '';
   document.getElementById('pkg-country').value = pkg.country || 'eu';

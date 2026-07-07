@@ -130,6 +130,12 @@ function authMiddleware(req, res, next) {
 
 function calcRate(weight, country = 'eu') {
   if (!weight || weight <= 0) return { type: '—', rate: 0 };
+  if (country === 'gb') {
+    // фиксированная цена за коробку (£)
+    if (weight <= 2) return { type: 'До 2 кг',  rate: 19,  fixed: true };
+    if (weight <= 5) return { type: 'До 5 кг',  rate: 42,  fixed: true };
+    return                  { type: 'До 20 кг', rate: 118, fixed: true };
+  }
   if (country === 'cn') {
     if (weight >= 20) return { type: 'Наземный', rate: 800 };
     return { type: 'Авиа', rate: 1200 };
@@ -142,12 +148,15 @@ function calcRate(weight, country = 'eu') {
 }
 
 function enrichPackage(p) {
+  const isGb = p.country === 'gb'; // UK — фикс. цена за коробку в £
   if (p.tariff_type && p.tariff_rate) {
-    const total = p.tariff_rate > 0 && p.weight > 0 ? Math.round(p.weight * p.tariff_rate) : 0;
+    const total = p.tariff_rate > 0
+      ? (isGb ? Math.round(p.tariff_rate) : (p.weight > 0 ? Math.round(p.weight * p.tariff_rate) : 0))
+      : 0;
     return { ...p, type: p.tariff_type, rate: p.tariff_rate, total };
   }
   const r = calcRate(p.weight, p.country || 'eu');
-  const total = r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0;
+  const total = r.rate > 0 ? (isGb ? r.rate : Math.round((p.weight || 0) * r.rate)) : 0;
   return { ...p, ...r, total };
 }
 
@@ -302,7 +311,7 @@ app.post('/api/my-packages', authMiddleware, (req, res) => {
   writeDB(db);
 
   // Notify admin about new client-added tracking
-  const countryLabel = { eu: '🇪🇺 Европа', cn: '🇨🇳 Китай', jp: '🇯🇵 Япония' }[country] || '—';
+  const countryLabel = { eu: '🇪🇺 Европа', gb: '🇬🇧 Великобритания', cn: '🇨🇳 Китай', jp: '🇯🇵 Япония' }[country] || '—';
   notifyAdmin(
     `<b>Monarc Cargo</b>\n\n` +
     `📥 Новый трек от клиента\n\n` +
@@ -326,6 +335,16 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
   const pkg = db.packages[idx];
   const prev = pkg.status;
   const { status, weight, description, client_id, client_username, client_name, country, item_name, tariff_type, tariff_rate } = req.body;
+
+  // Обновление трек-номера (в т.ч. присвоение реального трека посылке «NO»)
+  const newTrack = (req.body.tracking_number || '').trim().toUpperCase();
+  if (newTrack && newTrack !== 'NO' && newTrack !== pkg.tracking_number) {
+    if (db.packages.find(p => p.tracking_number === newTrack && p.id !== pkg.id)) {
+      return res.status(400).json({ error: 'Такой трек-номер уже существует' });
+    }
+    pkg.tracking_number = newTrack;
+    delete pkg.no_tracking;
+  }
 
   if (status)                    pkg.status = status;
   if (weight !== undefined)      pkg.weight = weight ? parseFloat(weight) : 0;
@@ -949,7 +968,7 @@ app.get('/export.csv', (req, res) => {
   if (req.query.token !== EXPORT_TOKEN) return res.status(403).send('Forbidden');
 
   const { packages } = readDB();
-  const COUNTRY = { eu: 'Европа', cn: 'Китай', jp: 'Япония' };
+  const COUNTRY = { eu: 'Европа', gb: 'Великобритания', cn: 'Китай', jp: 'Япония' };
   const STATUS_RU = {
     pending: 'Ожидается', received: 'На складе', processing: 'Обрабатывается',
     shipped: 'В пути', ready: 'Готово к выдаче', delivered: 'Завершён',
@@ -969,7 +988,7 @@ app.get('/export.csv', (req, res) => {
         esc(STATUS_RU[p.status] || p.status),
         esc(COUNTRY[p.country] || p.country || ''),
         p.weight || '',
-        esc(r.type || ''),
+        esc(r.type ? (p.country === 'gb' ? r.type + ' (£)' : r.type) : ''),
         r.total || '',
         esc(p.client_name || ''),
         esc(p.client_username ? '@' + p.client_username : ''),
@@ -1080,7 +1099,7 @@ app.get('/admin/live', (req, res) => {
 const TOKEN='${token}';
 const BASE='${base}';
 const STATUS_RU={pending:'Ожидается',received:'На складе',processing:'Обрабатывается',shipped:'В пути',ready:'Готово к выдаче',delivered:'Завершён'};
-const COUNTRY={eu:'🇪🇺 Европа',cn:'🇨🇳 Китай',jp:'🇯🇵 Япония'};
+const COUNTRY={eu:'🇪🇺 Европа',gb:'🇬🇧 Великобритания',cn:'🇨🇳 Китай',jp:'🇯🇵 Япония'};
 function fmt(n){return Number(n).toLocaleString('ru-RU')}
 function fmtDate(s){return new Date(s).toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'numeric'})}
 
@@ -1103,7 +1122,7 @@ async function load(){
       <td>\${COUNTRY[p.country]||p.country||'—'}</td>
       <td>\${p.weight?p.weight+' кг':'—'}</td>
       <td class="muted">\${p.type||'—'}</td>
-      <td>\${p.total?'~'+fmt(p.total)+' ₽':'—'}</td>
+      <td>\${p.total?(p.country==='gb'?'~£'+fmt(p.total):'~'+fmt(p.total)+' ₽'):'—'}</td>
       <td>\${p.client_name||''}${' '}\${p.client_username?'@'+p.client_username:''}\${!p.client_name&&!p.client_username&&p.client_id?'ID: '+p.client_id:''}</td>
       <td class="muted">\${p.description||''}</td>
       <td class="muted">\${fmtDate(p.created_at)}</td>
