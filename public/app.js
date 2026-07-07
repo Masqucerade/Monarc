@@ -55,6 +55,7 @@ const state = {
   currentView: 'packages', // 'packages' | 'invoices'
   adminFilter: 'all',
   adminSearch: '',
+  adminClient: '',
   editingId: null,
   calcCountry: 'eu',
   calcTariff: null,
@@ -500,11 +501,12 @@ async function loadPackages() {
     const params = new URLSearchParams();
     if (state.adminFilter && state.adminFilter !== 'all') params.set('status', state.adminFilter);
     if (state.adminSearch) params.set('search', state.adminSearch);
+    if (state.adminClient) params.set('client', state.adminClient);
     if (params.toString()) url += '?' + params.toString();
     state.packages = await apiFetch(url);
     renderPackages();
     animateChangedBadges(prevStatuses);
-    if (state.user?.is_admin) loadStats();
+    if (state.user?.is_admin) { loadStats(); loadClientFilter(); }
   } catch (e) {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">${e.message}</div></div>`;
   }
@@ -571,6 +573,31 @@ function renderPackages() {
     btn.querySelector('.archive-chevron').style.transform = open ? '' : 'rotate(180deg)';
     haptic('light');
   });
+}
+
+/* ── Client filter (admin) ───────────────────────────────────────── */
+let _clientFilterCache = '';
+
+async function loadClientFilter() {
+  try {
+    const clients = await apiFetch('/api/clients');
+    const sel = document.getElementById('client-filter-select');
+    const wrap = document.getElementById('admin-client-filter');
+    if (!sel || !wrap) return;
+    // Не перерисовываем select без изменений — чтобы не сбрасывать открытый дропдаун
+    const sig = JSON.stringify(clients.map(c => [c.key, c.count]));
+    if (sig === _clientFilterCache && sel.options.length > 1) return;
+    _clientFilterCache = sig;
+    sel.innerHTML = `<option value="">Все клиенты</option>` +
+      clients.map(c => `<option value="${esc(c.key)}">${esc(c.label)} — ${c.count}</option>`).join('');
+    sel.value = state.adminClient || '';
+    // Если выбранный клиент исчез (посылки удалены) — сбрасываем фильтр
+    if (state.adminClient && sel.value !== state.adminClient) {
+      state.adminClient = '';
+      sel.value = '';
+    }
+    wrap.style.display = clients.length ? 'flex' : 'none';
+  } catch {}
 }
 
 async function loadStats() {
@@ -1470,6 +1497,11 @@ document.getElementById('admin-search-input')?.addEventListener('input', e => {
   state.adminSearch = e.target.value;
   clearTimeout(state._st);
   state._st = setTimeout(loadPackages, 400);
+});
+document.getElementById('client-filter-select')?.addEventListener('change', e => {
+  state.adminClient = e.target.value;
+  haptic('light');
+  loadPackages();
 });
 document.getElementById('pkg-form').addEventListener('submit', handleFormSubmit);
 document.getElementById('client-pkg-form').addEventListener('submit', handleClientFormSubmit);

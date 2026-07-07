@@ -203,13 +203,59 @@ async function notifyAdmin(text) {
 
 app.get('/api/me', authMiddleware, (req, res) => res.json(req.user));
 
+// ── Client grouping ───────────────────────────────────────────────
+// Единый ключ клиента: id → username → имя. unameToId склеивает посылки,
+// где у одной указан только username, а у другой — username + id.
+function buildUnameToId(packages) {
+  const map = {};
+  packages.forEach(p => {
+    const u = (p.client_username || '').toLowerCase();
+    if (u && p.client_id) map[u] = String(p.client_id);
+  });
+  return map;
+}
+
+function clientKey(p, unameToId) {
+  if (p.client_id) return 'id:' + p.client_id;
+  const u = (p.client_username || '').toLowerCase();
+  if (u && unameToId[u]) return 'id:' + unameToId[u];
+  if (u) return 'u:' + u;
+  const n = (p.client_name || '').trim().toLowerCase();
+  return n ? 'n:' + n : null;
+}
+
+// Admin: unique clients across packages (for filter dropdown)
+app.get('/api/clients', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const { packages } = readDB();
+  const unameToId = buildUnameToId(packages);
+  const map = new Map();
+  packages.forEach(p => {
+    const key = clientKey(p, unameToId);
+    if (!key) return;
+    const cur = map.get(key) || { key, name: null, username: null, count: 0 };
+    cur.count++;
+    if (!cur.name && p.client_name) cur.name = p.client_name;
+    if (!cur.username && p.client_username) cur.username = p.client_username;
+    map.set(key, cur);
+  });
+  const clients = [...map.values()].map(c => ({
+    ...c,
+    label: c.name || (c.username ? '@' + c.username : c.key.replace('id:', 'ID ')),
+  })).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
+  res.json(clients);
+});
+
 // List packages
 app.get('/api/packages', authMiddleware, (req, res) => {
-  const { status, search } = req.query;
+  const { status, search, client } = req.query;
   let { packages } = readDB();
 
   if (req.user.is_admin) {
+    // карта username→id строится по полному списку — до фильтров
+    const unameToId = client ? buildUnameToId(packages) : null;
     if (status && status !== 'all') packages = packages.filter(p => p.status === status);
+    if (client) packages = packages.filter(p => clientKey(p, unameToId) === client);
     if (search) {
       const s = search.toLowerCase();
       packages = packages.filter(p =>

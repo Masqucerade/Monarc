@@ -644,6 +644,24 @@ body::after {
 .search-box input { flex: 1; background: none; border: none; outline: none; color: var(--text); font-size: 14px; }
 .search-box input::placeholder { color: var(--text3); }
 
+/* ── Client filter (admin) ─────────────────────────────────────── */
+.client-filter {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 14px;
+  margin-bottom: 14px; transition: border-color 0.2s;
+}
+.client-filter:focus-within { border-color: var(--border-acc); }
+.client-filter-icon { flex-shrink: 0; color: var(--text3); }
+.client-filter select {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--text); font-size: 14px; appearance: none; -webkit-appearance: none;
+  cursor: pointer;
+}
+.client-filter select option { background: var(--card); color: var(--text); }
+body.theme-light .client-filter select { color: #0f172a; }
+body.theme-light .client-filter select option { background: #ffffff; color: #0f172a; }
+
 /* ── Track Tab ─────────────────────────────────────────────────── */
 .track-search-card {
   background: var(--card); border: 1px solid var(--border);
