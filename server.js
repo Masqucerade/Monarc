@@ -9,8 +9,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_ID = process.env.ADMIN_ID || '885394476';
-// На Railway используем /data (Volume), локально — рядом с сервером
-const DATA_DIR = process.env.NODE_ENV === 'production' ? '/data' : __dirname;
+// Постоянное хранилище: Railway Volume (RAILWAY_VOLUME_MOUNT_PATH ставится автоматически
+// при подключённом Volume), иначе /data в проде, локально — рядом с сервером
+const DATA_DIR = process.env.DATA_DIR
+  || process.env.RAILWAY_VOLUME_MOUNT_PATH
+  || (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT ? '/data' : __dirname);
 const DB_FILE  = path.join(DATA_DIR, 'data.json');
 // Создаём директорию если её нет (нужно при первом запуске с Volume)
 try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
@@ -104,7 +107,8 @@ function verifyTelegramData(initData) {
 
 function authMiddleware(req, res, next) {
   const initData = req.headers['x-telegram-init-data'];
-  if (process.env.NODE_ENV !== 'production') {
+  // dev-обход авторизации только локально — на Railway всегда строгая проверка
+  if (process.env.NODE_ENV !== 'production' && !process.env.RAILWAY_ENVIRONMENT) {
     if (!initData || initData === 'dev') {
       const devId = req.headers['x-dev-user-id'] || '000000000';
       req.user = { id: String(devId), username: 'devuser', name: 'Dev User', is_admin: String(devId) === ADMIN_ID };
@@ -1276,7 +1280,8 @@ async function sendAutoBackup() {
 app.listen(PORT, () => {
   console.log(`\n🏭 Monarc Cargo  →  http://localhost:${PORT}`);
   console.log(`   Admin ID : ${ADMIN_ID}`);
-  console.log(`   Mode     : ${process.env.NODE_ENV}\n`);
+  console.log(`   Mode     : ${process.env.NODE_ENV}`);
+  console.log(`   Data dir : ${DATA_DIR}${process.env.RAILWAY_VOLUME_MOUNT_PATH ? ' (Railway Volume)' : ''}\n`);
   setupBot();
   setInterval(sendAutoBackup, 6 * 60 * 60 * 1000); // every 6 hours
 });
