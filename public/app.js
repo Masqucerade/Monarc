@@ -1723,6 +1723,50 @@ function showOnboarding() {
   }, { passive: true });
 }
 
+/* ── Web refresh (кнопка + отсчёт в шапке, как в Live-таблице) ───── */
+function setupWebRefresh() {
+  const header = document.querySelector('.header-actions');
+  if (!header) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'web-refresh';
+  wrap.innerHTML = `
+    <button id="btn-web-refresh" class="btn-web-refresh" title="Обновить сейчас">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Обновить
+    </button>
+    <span class="web-refresh-cd">через <b id="web-cd">60</b> с</span>`;
+  header.prepend(wrap);
+
+  let sec = 60;
+  const cd = wrap.querySelector('#web-cd');
+  const btn = wrap.querySelector('#btn-web-refresh');
+
+  function refreshCurrentView() {
+    if (state.currentTab !== 'packages') return Promise.resolve();
+    return state.currentView === 'invoices' ? loadInvoices() : loadPackages();
+  }
+
+  setInterval(() => {
+    sec--;
+    if (sec <= 0) {
+      sec = 60;
+      const anyOpen = ['modal-overlay','client-modal-overlay','invoice-modal-overlay','delivery-modal-overlay']
+        .some(id => document.getElementById(id)?.style.display === 'flex');
+      if (!anyOpen) refreshCurrentView();
+    }
+    cd.textContent = sec;
+  }, 1000);
+
+  btn.addEventListener('click', () => {
+    btn.classList.add('spinning'); btn.disabled = true;
+    sec = 60; cd.textContent = sec;
+    Promise.resolve(refreshCurrentView()).finally(() => {
+      btn.classList.remove('spinning'); btn.disabled = false;
+    });
+  });
+}
+
 /* ── Init ────────────────────────────────────────────────────────── */
 async function init() {
   initTheme();
@@ -1872,14 +1916,8 @@ async function init() {
       }, 30000);
     }
 
-    // Веб-версия: авто-обновление как в Live-таблице, каждые 60 сек
-    if (webToken) {
-      setInterval(() => {
-        const anyOpen = ['modal-overlay','client-modal-overlay','invoice-modal-overlay','delivery-modal-overlay']
-          .some(id => document.getElementById(id)?.style.display === 'flex');
-        if (!anyOpen && state.currentTab === 'packages' && state.currentView === 'packages') loadPackages();
-      }, 60000);
-    }
+    // Веб-версия: авто-обновление с обратным отсчётом, как в Live-таблице
+    if (webToken) setupWebRefresh();
   } catch (e) {
     // Недействительный токен веб-версии — сбрасываем и просим свежую ссылку
     if (webToken) {

@@ -1096,6 +1096,7 @@ app.get('/admin/live', (req, res) => {
 <meta name="apple-mobile-web-app-title" content="Monarc Live"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="theme-color" content="#08080f"/>
+<link rel="icon" type="image/svg+xml" href="${base}/favicon.svg"/>
 <title>Monarc — Live таблица</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
