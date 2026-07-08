@@ -60,7 +60,7 @@ const state = {
   calcCountry: 'eu',
   calcTariff: null,
   adminFormCountry: 'eu',
-  layoutMode: localStorage.getItem('monarc_layout') || 'table', // 'cards' | 'table' (веб-версия)
+  layoutMode: localStorage.getItem('monarc_layout') || 'cards', // 'cards' | 'table'
 };
 
 /* ── Telegram WebApp ─────────────────────────────────────────────── */
@@ -82,6 +82,8 @@ const WEB_TOKEN_KEY = 'monarc_web_token';
 })();
 const webToken = !tg?.initData ? localStorage.getItem(WEB_TOKEN_KEY) : null;
 if (webToken) document.body.classList.add('web-mode');
+// В веб-версии по умолчанию таблица, в Telegram — карточки
+if (webToken && !localStorage.getItem('monarc_layout')) state.layoutMode = 'table';
 
 function authHeaders() {
   const initData = getTgInitData();
@@ -446,7 +448,7 @@ function switchView(view) {
   if (view === 'packages') {
     pkgList.style.display = ''; invList.style.display = 'none';
     if (state.user?.is_admin) { stats.style.display = 'flex'; search.style.display = 'flex'; }
-    if (layoutToggle && webToken) layoutToggle.style.display = 'flex';
+    if (layoutToggle && (webToken || state.user?.is_admin)) layoutToggle.style.display = 'flex';
   } else {
     pkgList.style.display = 'none'; invList.style.display = '';
     if (stats) stats.style.display = 'none';
@@ -553,7 +555,7 @@ function animateChangedBadges(prev) {
 }
 
 function isTableMode() {
-  return !!webToken && state.layoutMode === 'table';
+  return state.layoutMode === 'table' && (!!webToken || !!state.user?.is_admin);
 }
 
 // Табличный вид — та же разметка, что у Live-таблицы
@@ -1989,8 +1991,9 @@ async function init() {
       }, 30000);
     }
 
-    // Веб-версия: авто-обновление с отсчётом + переключатель карточки/таблица
-    if (webToken) { setupWebRefresh(); setupLayoutToggle(); }
+    // Веб-версия: авто-обновление; переключатель карточки/таблица — веб и админ в TG
+    if (webToken) setupWebRefresh();
+    if (webToken || state.user.is_admin) setupLayoutToggle();
   } catch (e) {
     // Недействительный токен веб-версии — сбрасываем и просим свежую ссылку
     if (webToken) {
