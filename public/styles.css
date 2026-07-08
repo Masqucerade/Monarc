@@ -1697,6 +1697,52 @@ body.theme-light .i-stat-sep { background: rgba(0,0,0,0.08); }
   animation: shimmer 1.4s infinite linear;
 }
 
+/* ── Layout toggle (карточки / таблица, веб-версия) ────────────── */
+.layout-toggle {
+  display: flex; align-items: center; gap: 3px;
+  margin-left: auto; padding: 3px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: 99px;
+}
+.layout-btn {
+  width: 32px; height: 26px; border-radius: 99px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text3); transition: background 0.15s, color 0.15s;
+}
+.layout-btn:hover { color: var(--text2); }
+.layout-btn.active { background: rgba(255,255,255,0.12); color: #fff; }
+body.theme-light .layout-toggle { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); }
+body.theme-light .layout-btn.active { background: rgba(0,0,0,0.1); color: #0f172a; }
+
+/* ── Табличный вид посылок (как Live-таблица) ──────────────────── */
+.card-list.table-mode { display: block; }
+.pkg-table-wrap {
+  overflow-x: auto;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; margin-bottom: 16px;
+  animation: fadeInUp 0.22s ease-out;
+}
+.pkg-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
+.pkg-table thead th {
+  text-align: left; padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text3); font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.5px; white-space: nowrap;
+}
+.pkg-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.15s; cursor: pointer;
+}
+.pkg-table tbody tr:last-child { border-bottom: none; }
+.pkg-table tbody tr:hover { background: rgba(255,255,255,0.04); }
+.pkg-table td { padding: 10px 12px; vertical-align: middle; }
+.pkg-table .track { font-family: monospace; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; white-space: nowrap; }
+.pkg-table .muted { color: var(--text3); }
+.pkg-table .status-badge { white-space: nowrap; }
+body.theme-light .pkg-table tbody tr { border-bottom-color: rgba(0,0,0,0.05); }
+body.theme-light .pkg-table tbody tr:hover { background: rgba(0,0,0,0.03); }
+body.theme-light .pkg-table thead th { border-bottom-color: rgba(0,0,0,0.1); }
+
 /* ── Web refresh (кнопка + отсчёт в шапке веб-версии) ──────────── */
 .web-refresh { display: flex; align-items: center; gap: 10px; margin-right: 4px; }
 .btn-web-refresh {

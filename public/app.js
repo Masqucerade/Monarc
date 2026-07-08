@@ -60,6 +60,7 @@ const state = {
   calcCountry: 'eu',
   calcTariff: null,
   adminFormCountry: 'eu',
+  layoutMode: localStorage.getItem('monarc_layout') || 'cards', // 'cards' | 'table' (веб-версия)
 };
 
 /* ── Telegram WebApp ─────────────────────────────────────────────── */
@@ -441,13 +442,16 @@ function switchView(view) {
   const stats    = document.getElementById('admin-stats');
   const search   = document.getElementById('admin-search');
 
+  const layoutToggle = document.getElementById('layout-toggle');
   if (view === 'packages') {
     pkgList.style.display = ''; invList.style.display = 'none';
     if (state.user?.is_admin) { stats.style.display = 'flex'; search.style.display = 'flex'; }
+    if (layoutToggle && webToken) layoutToggle.style.display = 'flex';
   } else {
     pkgList.style.display = 'none'; invList.style.display = '';
     if (stats) stats.style.display = 'none';
     if (search) search.style.display = 'none';
+    if (layoutToggle) layoutToggle.style.display = 'none';
     loadInvoices();
   }
   haptic('light');
@@ -548,9 +552,61 @@ function animateChangedBadges(prev) {
   }, 50); // небольшая задержка после рендера
 }
 
+function isTableMode() {
+  return !!webToken && state.layoutMode === 'table';
+}
+
+// Табличный вид — та же разметка, что у Live-таблицы
+function renderPackagesTable() {
+  const list = document.getElementById('packages-list');
+
+  if (!state.packages.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">📭</div>
+      <div class="empty-title">Посылок нет</div>
+      <div class="empty-sub">Нажмите «+» чтобы добавить</div>
+    </div>`;
+    return;
+  }
+
+  const rows = state.packages.map(p => {
+    const c = COUNTRIES[p.country];
+    const client = `${esc(p.client_name || '')}${p.client_username ? ' @' + esc(p.client_username) : ''}${!p.client_name && !p.client_username && p.client_id ? 'ID: ' + esc(p.client_id) : ''}`;
+    return `<tr data-id="${p.id}" title="Нажмите чтобы редактировать">
+      <td class="track">${p.no_tracking ? '<span class="muted">Без трека</span> ' : ''}${esc(p.tracking_number)}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td>${c ? c.flag + ' ' + c.name : '—'}</td>
+      <td>${p.weight ? p.weight + ' кг' : '—'}</td>
+      <td class="muted">${p.type || '—'}</td>
+      <td>${p.total ? (p.country === 'gb' ? '~£' + fmt(p.total) : '~' + fmt(p.total) + ' ₽') : '—'}</td>
+      <td>${client || '<span class="muted">—</span>'}</td>
+      <td class="muted">${esc(p.description || '')}</td>
+      <td class="muted">${fmtDate(p.created_at)}</td>
+    </tr>`;
+  }).join('');
+
+  list.innerHTML = `<div class="pkg-table-wrap"><table class="pkg-table">
+    <thead><tr>
+      <th>Трек-номер</th><th>Статус</th><th>Страна</th><th>Вес</th><th>Тариф</th>
+      <th>Стоимость</th><th>Клиент</th><th>Заметка</th><th>Добавлено</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+
+  list.querySelectorAll('tr[data-id]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const pkg = state.packages.find(p => p.id === parseInt(tr.dataset.id));
+      if (pkg) openEditModal(pkg);
+    });
+  });
+}
+
 function renderPackages() {
   const list = document.getElementById('packages-list');
   const isAdmin = state.user?.is_admin;
+
+  list.classList.toggle('table-mode', isTableMode());
+  if (isTableMode()) return renderPackagesTable();
 
   const active   = state.packages.filter(p => p.status !== 'delivered');
   const archived = state.packages.filter(p => p.status === 'delivered');
@@ -1723,6 +1779,27 @@ function showOnboarding() {
   }, { passive: true });
 }
 
+/* ── Layout toggle (карточки / таблица, только веб-версия) ───────── */
+function setupLayoutToggle() {
+  const lt = document.getElementById('layout-toggle');
+  if (!lt) return;
+  lt.style.display = 'flex';
+
+  const btns = lt.querySelectorAll('.layout-btn');
+  const setActive = () => btns.forEach(b => b.classList.toggle('active', b.dataset.layout === state.layoutMode));
+  setActive();
+
+  btns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (state.layoutMode === btn.dataset.layout) return;
+      state.layoutMode = btn.dataset.layout;
+      localStorage.setItem('monarc_layout', state.layoutMode);
+      setActive();
+      renderPackages();
+    });
+  });
+}
+
 /* ── Web refresh (кнопка + отсчёт в шапке, как в Live-таблице) ───── */
 function setupWebRefresh() {
   const header = document.querySelector('.header-actions');
@@ -1916,8 +1993,8 @@ async function init() {
       }, 30000);
     }
 
-    // Веб-версия: авто-обновление с обратным отсчётом, как в Live-таблице
-    if (webToken) setupWebRefresh();
+    // Веб-версия: авто-обновление с отсчётом + переключатель карточки/таблица
+    if (webToken) { setupWebRefresh(); setupLayoutToggle(); }
   } catch (e) {
     // Недействительный токен веб-версии — сбрасываем и просим свежую ссылку
     if (webToken) {

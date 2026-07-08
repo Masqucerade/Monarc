@@ -56,6 +56,14 @@
         <div class="view-toggle">
           <button class="view-pill active" data-view="packages">📦 Посылки</button>
           <button class="view-pill" data-view="invoices">💰 Счета<span class="inv-dot" id="inv-dot" style="display:none"></span></button>
+          <div id="layout-toggle" class="layout-toggle" style="display:none">
+            <button class="layout-btn" data-layout="cards" title="Карточки">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            </button>
+            <button class="layout-btn" data-layout="table" title="Таблица">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+          </div>
         </div>
         <div id="admin-stats" class="stats-row" style="display:none">
           <div class="stat-chip active" data-filter="all">Все <span id="stat-total">0</span></div>
