@@ -69,15 +69,33 @@ if (tg) { tg.expand(); tg.ready(); tg.enableClosingConfirmation(); }
 function getTgInitData() { return tg?.initData || ''; }
 function haptic(style = 'light') { tg?.HapticFeedback?.impactOccurred(style); }
 
+/* ── Web mode (браузер на ПК, авторизация по токену) ─────────────── */
+// Ссылка вида https://…/?token=XXX — токен сохраняется, дальше работает без него
+const WEB_TOKEN_KEY = 'monarc_web_token';
+(function () {
+  const t = new URLSearchParams(location.search).get('token');
+  if (t) {
+    localStorage.setItem(WEB_TOKEN_KEY, t);
+    history.replaceState(null, '', location.pathname);
+  }
+})();
+const webToken = !tg?.initData ? localStorage.getItem(WEB_TOKEN_KEY) : null;
+if (webToken) document.body.classList.add('web-mode');
+
+function authHeaders() {
+  const initData = getTgInitData();
+  if (initData) return { 'x-telegram-init-data': initData };
+  if (webToken)  return { 'x-admin-token': webToken };
+  return { 'x-telegram-init-data': 'dev', 'x-dev-user-id': state.user?.id || ADMIN_ID };
+}
+
 /* ── API ─────────────────────────────────────────────────────────── */
 async function apiFetch(path, options = {}) {
-  const initData = getTgInitData();
   const headers = {
     'Content-Type': 'application/json',
-    'x-telegram-init-data': initData || 'dev',
+    ...authHeaders(),
     ...(options.headers || {}),
   };
-  if (!initData) headers['x-dev-user-id'] = state.user?.id || ADMIN_ID;
   const res = await fetch(path, { ...options, headers });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Ошибка сервера');
@@ -407,7 +425,7 @@ function renderInvoices() {
     const al = document.getElementById('inv-archive-list');
     const btn = document.getElementById('inv-archive-btn');
     const open = al.style.display !== 'none';
-    al.style.display = open ? 'none' : 'block';
+    al.style.display = open ? 'none' : '';
     btn.querySelector('.archive-chevron').style.transform = open ? '' : 'rotate(180deg)';
     haptic('light');
   });
@@ -569,7 +587,7 @@ function renderPackages() {
     const al = document.getElementById('pkg-archive-list');
     const btn = document.getElementById('pkg-archive-btn');
     const open = al.style.display !== 'none';
-    al.style.display = open ? 'none' : 'block';
+    al.style.display = open ? 'none' : '';
     btn.querySelector('.archive-chevron').style.transform = open ? '' : 'rotate(180deg)';
     haptic('light');
   });
@@ -1288,10 +1306,7 @@ function setupTemplateMgmt() {
 /* ── Backup ──────────────────────────────────────────────────────── */
 async function downloadBackup() {
   try {
-    const initData = getTgInitData();
-    const headers = { 'x-telegram-init-data': initData || 'dev' };
-    if (!initData) headers['x-dev-user-id'] = state.user?.id || ADMIN_ID;
-    const res = await fetch('/api/admin/backup', { headers });
+    const res = await fetch('/api/admin/backup', { headers: authHeaders() });
     if (!res.ok) throw new Error('Ошибка');
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -1711,7 +1726,7 @@ function showOnboarding() {
 /* ── Init ────────────────────────────────────────────────────────── */
 async function init() {
   initTheme();
-  if (!tg?.initData) {
+  if (!tg?.initData && !webToken) {
     await new Promise(r => setTimeout(r, 1200));
     document.getElementById('loading').innerHTML = `
       <div style="text-align:center;padding:32px 24px;max-width:320px;position:relative;z-index:1">
@@ -1755,6 +1770,15 @@ async function init() {
         });
         document.getElementById('btn-csv').addEventListener('click', () => {
           window.open(info.csv_url, '_blank');
+        });
+
+        // Веб-версия для ПК
+        document.getElementById('btn-web-open')?.addEventListener('click', () => {
+          window.open(info.web_url, '_blank');
+        });
+        document.getElementById('btn-web-copy')?.addEventListener('click', () => {
+          copyText(info.web_url);
+          toast('Ссылка скопирована — откройте её в браузере на ПК', 'success');
         });
 
         // iPhone buttons
@@ -1847,7 +1871,27 @@ async function init() {
         if (!anyOpen) loadPackages();
       }, 30000);
     }
+
+    // Веб-версия: авто-обновление как в Live-таблице, каждые 60 сек
+    if (webToken) {
+      setInterval(() => {
+        const anyOpen = ['modal-overlay','client-modal-overlay','invoice-modal-overlay','delivery-modal-overlay']
+          .some(id => document.getElementById(id)?.style.display === 'flex');
+        if (!anyOpen && state.currentTab === 'packages' && state.currentView === 'packages') loadPackages();
+      }, 60000);
+    }
   } catch (e) {
+    // Недействительный токен веб-версии — сбрасываем и просим свежую ссылку
+    if (webToken) {
+      localStorage.removeItem(WEB_TOKEN_KEY);
+      document.getElementById('loading').innerHTML = `
+        <div style="text-align:center;padding:24px;position:relative;z-index:1">
+          <div style="font-size:44px;margin-bottom:16px">🔒</div>
+          <div style="color:#f1f5f9;font-size:15px;font-weight:600;margin-bottom:8px">Ссылка недействительна</div>
+          <div style="color:#64748b;font-size:13px;line-height:1.6">Откройте Mini App в Telegram → Инфо →<br>«Веб-версия» и скопируйте новую ссылку</div>
+        </div>`;
+      return;
+    }
     document.getElementById('loading').innerHTML = `
       <div style="text-align:center;padding:24px;position:relative;z-index:1">
         <div style="font-size:44px;margin-bottom:16px">⚠️</div>

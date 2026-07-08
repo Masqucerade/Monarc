@@ -1696,3 +1696,121 @@ body.theme-light .i-stat-sep { background: rgba(0,0,0,0.08); }
   background-size: 300% 100%;
   animation: shimmer 1.4s infinite linear;
 }
+
+/* ── Desktop / веб-версия ──────────────────────────────────────── */
+@media (min-width: 880px) {
+  button, select, label, .nav-item { cursor: pointer; }
+
+  /* Header */
+  #header { padding: 0 32px; }
+  .brand-name { font-size: 20px; }
+  .brand-tag { font-size: 9px; }
+
+  /* Content: центрируем, ширина под каждую вкладку */
+  #content { padding-bottom: 120px; }
+  .tab-section { max-width: 1180px; margin: 0 auto; padding: 28px 32px 0; }
+  #tab-track { max-width: 680px; }
+  #tab-info  { max-width: 760px; }
+  #tab-rates { max-width: 1020px; }
+  .section-header h2 { font-size: 24px; }
+
+  /* Карточки посылок и счетов — сетка */
+  .card-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+  .card-list > .empty-state,
+  .card-list > .btn-archive-toggle,
+  .card-list > .archive-list { grid-column: 1 / -1; }
+  .archive-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+  .pkg-card, .inv-card { transition: transform 0.18s ease, box-shadow 0.18s ease; }
+  .pkg-card:hover, .inv-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 32px rgba(0,0,0,0.4);
+  }
+  body.theme-light .pkg-card:hover,
+  body.theme-light .inv-card:hover { box-shadow: 0 10px 28px rgba(0,0,0,0.12); }
+
+  /* Тарифы — две колонки */
+  #rates-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .calc-card { max-width: 640px; }
+
+  /* Навигация — плавающая панель снизу по центру */
+  #bottom-nav {
+    left: 50%; right: auto; bottom: 18px;
+    transform: translateX(-50%);
+    height: auto; padding: 6px;
+    border: 1px solid var(--border); border-radius: 999px;
+    background: rgba(10,10,18,0.88); backdrop-filter: blur(24px);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    gap: 4px;
+  }
+  .nav-item {
+    flex: none;
+    flex-direction: row; gap: 8px;
+    padding: 10px 20px; border-radius: 999px;
+    font-size: 13px;
+  }
+  .nav-item svg { width: 18px; height: 18px; }
+  .nav-item:hover { color: var(--text2); }
+  .nav-item.active { background: rgba(255,255,255,0.1); color: #fff; }
+  .nav-item.active svg { stroke: #fff; }
+  body.theme-light #bottom-nav {
+    background: rgba(255,255,255,0.92);
+    border-color: rgba(0,0,0,0.1);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.14);
+  }
+  body.theme-light .nav-item:hover  { color: #475569; }
+  body.theme-light .nav-item.active { background: rgba(0,0,0,0.07); color: #0f172a; }
+
+  /* Модалки — по центру экрана вместо шторки снизу */
+  .modal-overlay { align-items: center; justify-content: center; padding: 32px; }
+  .modal-sheet {
+    max-width: 540px; max-height: 86vh;
+    border-radius: 20px; padding: 24px 28px 30px;
+    animation: modalPop 0.22s ease-out;
+  }
+  .modal-handle { display: none; }
+
+  /* Ховеры для кнопок */
+  .view-pill:hover, .stat-chip:hover, .country-pill:hover, .tariff-pill:hover,
+  .btn-export-action:hover, .btn-tpl-add:hover, .tpl-chip:hover,
+  .btn-edit-status:hover, .btn-action-icon:hover, .btn-archive-toggle:hover,
+  .btn-backup-dl:hover, .btn-backup-tg:hover, .btn-backup-restore:hover,
+  .copy-btn:hover, .modal-close:hover, .btn-theme:hover {
+    background: rgba(255,255,255,0.1);
+  }
+  body.theme-light .view-pill:hover, body.theme-light .stat-chip:hover,
+  body.theme-light .country-pill:hover, body.theme-light .tariff-pill:hover,
+  body.theme-light .btn-export-action:hover, body.theme-light .btn-tpl-add:hover,
+  body.theme-light .tpl-chip:hover, body.theme-light .btn-edit-status:hover,
+  body.theme-light .btn-action-icon:hover, body.theme-light .btn-archive-toggle:hover,
+  body.theme-light .btn-backup-dl:hover, body.theme-light .btn-backup-tg:hover,
+  body.theme-light .btn-backup-restore:hover, body.theme-light .copy-btn:hover,
+  body.theme-light .modal-close:hover, body.theme-light .btn-theme:hover {
+    background: rgba(0,0,0,0.07);
+  }
+  .btn-add-admin:hover { opacity: 0.85; }
+  .btn-delete:hover { background: rgba(239,68,68,0.15); }
+  .btn-primary:hover, .btn-primary-sm:hover { opacity: 0.88; }
+
+  /* Pull-to-refresh на десктопе не нужен */
+  .ptr-indicator { display: none; }
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}

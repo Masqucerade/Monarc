@@ -106,6 +106,12 @@ function verifyTelegramData(initData) {
 }
 
 function authMiddleware(req, res, next) {
+  // Веб-версия для ПК: доступ админа по токену (тот же, что у Live-таблицы/CSV)
+  const adminToken = req.headers['x-admin-token'];
+  if (adminToken && adminToken === EXPORT_TOKEN) {
+    req.user = { id: ADMIN_ID, username: 'admin', name: 'Admin (Web)', is_admin: true };
+    return next();
+  }
   const initData = req.headers['x-telegram-init-data'];
   // dev-обход авторизации только локально — на Railway всегда строгая проверка
   if (process.env.NODE_ENV !== 'production' && !process.env.RAILWAY_ENVIRONMENT) {
@@ -1008,6 +1014,7 @@ app.get('/api/admin/export-info', authMiddleware, (req, res) => {
     token: EXPORT_TOKEN,
     csv_url: `${base}/export.csv?token=${EXPORT_TOKEN}`,
     live_url: `${base}/admin/live?token=${EXPORT_TOKEN}`,
+    web_url: `${base}/?token=${EXPORT_TOKEN}`,
     sheets_formula: `=IMPORTDATA("${base}/export.csv?token=${EXPORT_TOKEN}")`,
   });
 });
@@ -1134,6 +1141,7 @@ app.get('/admin/live', (req, res) => {
       Обновить
     </button>
     <span style="color:#334155">Авто через <span class="countdown" id="cd">60</span> сек</span>
+    <a href="${base}/?token=${token}" class="csv-link">🖥 Открыть приложение</a>
     <a href="${base}/export.csv?token=${token}" class="csv-link">⬇ Скачать CSV</a>
   </div>
 </header>
