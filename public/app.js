@@ -60,7 +60,7 @@ const state = {
   calcCountry: 'eu',
   calcTariff: null,
   adminFormCountry: 'eu',
-  layoutMode: localStorage.getItem('monarc_layout') || 'cards', // 'cards' | 'table' (веб-версия)
+  layoutMode: localStorage.getItem('monarc_layout') || 'table', // 'cards' | 'table' (веб-версия)
 };
 
 /* ── Telegram WebApp ─────────────────────────────────────────────── */
@@ -1808,15 +1808,12 @@ function setupWebRefresh() {
   const wrap = document.createElement('div');
   wrap.className = 'web-refresh';
   wrap.innerHTML = `
-    <button id="btn-web-refresh" class="btn-web-refresh" title="Обновить сейчас">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      Обновить
-    </button>
-    <span class="web-refresh-cd">через <b id="web-cd">60</b> с</span>`;
+    <button id="btn-web-refresh" class="btn-web-refresh" title="Обновить (авто каждые 60 сек)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    </button>`;
   header.prepend(wrap);
 
   let sec = 60;
-  const cd = wrap.querySelector('#web-cd');
   const btn = wrap.querySelector('#btn-web-refresh');
 
   function refreshCurrentView() {
@@ -1832,12 +1829,11 @@ function setupWebRefresh() {
         .some(id => document.getElementById(id)?.style.display === 'flex');
       if (!anyOpen) refreshCurrentView();
     }
-    cd.textContent = sec;
   }, 1000);
 
   btn.addEventListener('click', () => {
     btn.classList.add('spinning'); btn.disabled = true;
-    sec = 60; cd.textContent = sec;
+    sec = 60;
     Promise.resolve(refreshCurrentView()).finally(() => {
       btn.classList.remove('spinning'); btn.disabled = false;
     });

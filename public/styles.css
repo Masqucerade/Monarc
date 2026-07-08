@@ -1743,32 +1743,32 @@ body.theme-light .pkg-table tbody tr { border-bottom-color: rgba(0,0,0,0.05); }
 body.theme-light .pkg-table tbody tr:hover { background: rgba(0,0,0,0.03); }
 body.theme-light .pkg-table thead th { border-bottom-color: rgba(0,0,0,0.1); }
 
-/* ── Web refresh (кнопка + отсчёт в шапке веб-версии) ──────────── */
-.web-refresh { display: flex; align-items: center; gap: 10px; margin-right: 4px; }
+/* ── Web refresh (зелёная иконка обновления в шапке веб-версии) ── */
+.web-refresh { display: flex; align-items: center; margin-right: 2px; }
 .btn-web-refresh {
-  display: inline-flex; align-items: center; gap: 6px;
-  height: 34px; padding: 0 13px; border-radius: 10px;
-  background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
-  color: #4ade80; font-size: 12px; font-weight: 600;
-  transition: background 0.15s;
+  width: 34px; height: 34px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.35);
+  color: #4ade80; transition: background 0.15s;
 }
-.btn-web-refresh:hover { background: rgba(34,197,94,0.18); }
+.btn-web-refresh:hover { background: rgba(34,197,94,0.22); }
 .btn-web-refresh.spinning svg { animation: spin 0.6s linear infinite; }
-.web-refresh-cd { font-size: 12px; color: var(--text3); white-space: nowrap; }
-.web-refresh-cd b { color: var(--text2); font-weight: 600; }
-@media (max-width: 560px) {
-  .web-refresh-cd { display: none; }
-  .btn-web-refresh { padding: 0 10px; font-size: 0; gap: 0; }
-  .btn-web-refresh svg { width: 15px; height: 15px; }
-}
-body.theme-light .web-refresh-cd   { color: #94a3b8; }
-body.theme-light .web-refresh-cd b { color: #475569; }
 body.theme-light .btn-web-refresh {
-  background: rgba(22,163,74,0.08); border-color: rgba(22,163,74,0.3); color: #16a34a;
+  background: rgba(22,163,74,0.1); border-color: rgba(22,163,74,0.35); color: #16a34a;
 }
 
 /* ── Desktop / веб-версия ──────────────────────────────────────── */
 @media (min-width: 880px) {
+  /* Ярче контраст на большом экране (светлая тема переопределяет ниже) */
+  :root {
+    --card:       rgba(255,255,255,0.07);
+    --card-hover: rgba(255,255,255,0.11);
+    --border:     rgba(255,255,255,0.14);
+    --border-acc: rgba(255,255,255,0.32);
+    --text2:      #c2cdda;
+    --text3:      #8b9bb3;
+  }
+
   button, select, label, .nav-item { cursor: pointer; }
 
   /* Header */
@@ -1776,13 +1776,27 @@ body.theme-light .btn-web-refresh {
   .brand-name { font-size: 20px; }
   .brand-tag { font-size: 9px; }
 
-  /* Content: центрируем, ширина под каждую вкладку */
+  /* Content: посылки во всю ширину, остальные вкладки по центру */
   #content { padding-bottom: 120px; }
-  .tab-section { max-width: 1180px; margin: 0 auto; padding: 28px 32px 0; }
+  .tab-section { max-width: none; margin: 0 auto; padding: 28px 36px 0; }
   #tab-track { max-width: 680px; }
   #tab-info  { max-width: 760px; }
   #tab-rates { max-width: 1020px; }
   .section-header h2 { font-size: 24px; }
+
+  /* Ярче бейджи статусов */
+  .badge-pending    { background: rgba(139,92,246,0.22); color: #c4b5fd; border-color: rgba(139,92,246,0.45); }
+  .badge-received   { background: rgba(249,115,22,0.22); color: #fdba74; border-color: rgba(249,115,22,0.45); }
+  .badge-processing { background: rgba(148,163,184,0.2); color: #cbd5e1; border-color: rgba(148,163,184,0.4); }
+  .badge-shipped    { background: rgba(59,130,246,0.22); color: #93c5fd; border-color: rgba(59,130,246,0.45); }
+  .badge-ready      { background: rgba(34,197,94,0.22);  color: #86efac; border-color: rgba(34,197,94,0.5); }
+  .badge-delivered  { background: rgba(148,163,184,0.16); color: #b6c2d1; border-color: rgba(148,163,184,0.35); }
+  body.theme-light .badge-pending    { background: rgba(139,92,246,0.12); color: #7c3aed; border-color: rgba(139,92,246,0.3); }
+  body.theme-light .badge-received   { background: rgba(249,115,22,0.12); color: #ea580c; border-color: rgba(249,115,22,0.3); }
+  body.theme-light .badge-processing { background: rgba(100,116,139,0.1); color: #475569; border-color: rgba(100,116,139,0.25); }
+  body.theme-light .badge-shipped    { background: rgba(59,130,246,0.1);  color: #2563eb; border-color: rgba(59,130,246,0.3); }
+  body.theme-light .badge-ready      { background: rgba(34,197,94,0.12);  color: #15803d; border-color: rgba(34,197,94,0.35); }
+  body.theme-light .badge-delivered  { background: rgba(100,116,139,0.1); color: #64748b; border-color: rgba(100,116,139,0.25); }
 
   /* Статистика — карточки с крупными цифрами, как в Live-таблице */
   .stats-row { gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }

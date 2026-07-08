@@ -271,7 +271,13 @@ app.get('/api/packages', authMiddleware, (req, res) => {
       );
     }
   } else {
-    packages = packages.filter(p => p.client_id === req.user.id);
+    // Клиент видит посылки, привязанные по ID или по @username
+    // (важно для посылок без трека: клиент не может добавить их сам)
+    const uname = (req.user.username || '').toLowerCase();
+    packages = packages.filter(p =>
+      p.client_id === req.user.id ||
+      (uname && (p.client_username || '').toLowerCase() === uname)
+    );
   }
 
   packages = [...packages].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -545,7 +551,10 @@ app.delete('/api/my-packages/:id', authMiddleware, (req, res) => {
   const idx = db.packages.findIndex(p => p.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Посылка не найдена' });
   const pkg = db.packages[idx];
-  if (pkg.client_id !== req.user.id) return res.status(403).json({ error: 'Нет доступа' });
+  const uname = (req.user.username || '').toLowerCase();
+  const isOwner = pkg.client_id === req.user.id ||
+    (uname && (pkg.client_username || '').toLowerCase() === uname);
+  if (!isOwner) return res.status(403).json({ error: 'Нет доступа' });
   if (pkg.source === 'client') {
     db.packages.splice(idx, 1);
   } else {
