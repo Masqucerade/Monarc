@@ -174,6 +174,21 @@ function resizeImage(file, maxW, maxH, quality) {
   });
 }
 
+// Общая загрузка фото к посылке (файл / буфер / drag&drop). Возвращает обновлённую посылку.
+async function uploadPackagePhoto(pkgId, file) {
+  if (!pkgId || !file) return null;
+  if (!file.type?.startsWith('image/')) { toast('Это не изображение', 'error'); return null; }
+  const photoData = await resizeImage(file, 1200, 1200, 0.82);
+  const pkg = await apiFetch(`/api/packages/${pkgId}/photo`, {
+    method: 'POST',
+    body: JSON.stringify({ photo_data: photoData }),
+  });
+  toast('Фото прикреплено', 'success');
+  haptic('medium');
+  loadPackages();
+  return pkg;
+}
+
 /* ── Package Card ────────────────────────────────────────────────── */
 function pkgCard(p, isAdmin) {
   const country = p.country || 'eu';
@@ -897,6 +912,9 @@ function openAddModal() {
   document.getElementById('pkg-status').value = 'received';
   document.getElementById('pkg-country').value = 'eu';
   updateAdminTariffSelector('eu');
+  // Фото прикрепляется только к существующей посылке — при создании прячем зону
+  const pg = document.getElementById('pkg-photo-group');
+  if (pg) pg.style.display = 'none';
   showModal('modal-overlay');
   renderClientChips();
 }
@@ -924,8 +942,102 @@ function openEditModal(pkg) {
     const sel = document.getElementById('pkg-tariff');
     if (sel) sel.value = `${pkg.tariff_type}|${pkg.tariff_rate}`;
   }
+  setPkgPhotoPreview(pkg.photo_url);
   renderClientChips();
   showModal('modal-overlay');
+}
+
+// Превью фото в модалке редактирования
+function setPkgPhotoPreview(url) {
+  const group = document.getElementById('pkg-photo-group');
+  if (!group) return;
+  group.style.display = '';
+  const thumb  = document.getElementById('pkg-photo-thumb');
+  const hint   = document.getElementById('pkg-photo-hint');
+  const title  = document.getElementById('pkg-photo-title');
+  const remove = document.getElementById('pkg-photo-remove');
+  if (url) {
+    thumb.src = url + (url.includes('?') ? '' : '?t=' + Date.now()); // сброс кэша при замене
+    thumb.style.display = 'block';
+    remove.style.display = 'inline-flex';
+    title.textContent = 'Заменить: вставьте (Ctrl/⌘+V) или нажмите';
+    hint.classList.add('compact');
+  } else {
+    thumb.style.display = 'none';
+    thumb.src = '';
+    remove.style.display = 'none';
+    title.textContent = 'Вставьте из буфера (Ctrl/⌘+V)';
+    hint.classList.remove('compact');
+  }
+}
+
+async function handleModalPhotoFile(file) {
+  if (!state.editingId || !file) return;
+  const zone = document.getElementById('pkg-photo-zone');
+  zone?.classList.add('uploading');
+  try {
+    const pkg = await uploadPackagePhoto(state.editingId, file);
+    if (pkg) setPkgPhotoPreview(pkg.photo_url);
+  } catch (err) {
+    toast(err.message || 'Ошибка загрузки фото', 'error');
+  } finally {
+    zone?.classList.remove('uploading');
+  }
+}
+
+// Зона фото в модалке: клик → файл, drag&drop, вставка из буфера, удаление
+function setupModalPhotoZone() {
+  const zone = document.getElementById('pkg-photo-zone');
+  const fileInput = document.getElementById('pkg-photo-file');
+  if (!zone || !fileInput) return;
+
+  zone.addEventListener('click', e => {
+    if (e.target.closest('#pkg-photo-remove')) return;
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) handleModalPhotoFile(file);
+  });
+
+  ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault(); zone.classList.add('dragover');
+  }));
+  ['dragleave', 'dragend'].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault(); zone.classList.remove('dragover');
+  }));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    const file = [...(e.dataTransfer?.files || [])].find(f => f.type.startsWith('image/'));
+    if (file) handleModalPhotoFile(file);
+  });
+
+  document.getElementById('pkg-photo-remove')?.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!state.editingId) return;
+    const doDelete = async () => {
+      try {
+        await apiFetch(`/api/packages/${state.editingId}/photo`, { method: 'DELETE' });
+        toast('Фото удалено', 'success');
+        setPkgPhotoPreview(null);
+        loadPackages();
+      } catch (err) { toast(err.message, 'error'); }
+    };
+    if (tg?.showConfirm) tg.showConfirm('Удалить фото?', ok => { if (ok) doDelete(); });
+    else if (confirm('Удалить фото?')) doDelete();
+  });
+
+  // Ctrl/⌘+V — вставка из буфера, когда открыта модалка редактирования
+  document.addEventListener('paste', e => {
+    const modalOpen = document.getElementById('modal-overlay')?.style.display === 'flex';
+    if (!modalOpen || !state.editingId) return;
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+    if (!item) return;
+    e.preventDefault();
+    const file = item.getAsFile();
+    if (file) handleModalPhotoFile(file);
+  });
 }
 
 // Country change in admin form
@@ -1938,7 +2050,7 @@ async function init() {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
 
-    // Обработчик загрузки фото
+    // Загрузка фото по кнопке-иконке на карточке
     document.getElementById('photo-input')?.addEventListener('change', async e => {
       const file = e.target.files?.[0];
       e.target.value = '';
@@ -1948,19 +2060,15 @@ async function init() {
       const uploadBtn = document.querySelector(`.btn-photo-icon[data-pkg-id="${pkgId}"]`);
       if (uploadBtn) { uploadBtn.style.opacity = '0.4'; uploadBtn.disabled = true; }
       try {
-        const photoData = await resizeImage(file, 1200, 1200, 0.82);
-        await apiFetch(`/api/packages/${pkgId}/photo`, {
-          method: 'POST',
-          body: JSON.stringify({ photo_data: photoData }),
-        });
-        toast('Фото прикреплено', 'success');
-        haptic('medium');
-        loadPackages();
+        await uploadPackagePhoto(pkgId, file);
       } catch (err) {
         toast(err.message || 'Ошибка загрузки фото', 'error');
         if (uploadBtn) { uploadBtn.style.opacity = ''; uploadBtn.disabled = false; }
       }
     });
+
+    // Зона фото в модалке (вставка из буфера / файл / drag&drop)
+    setupModalPhotoZone();
 
     loadPackages();
     // Проверяем неоплаченные счета в фоне (только для клиентов)

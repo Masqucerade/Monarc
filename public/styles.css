@@ -365,6 +365,44 @@ body::after {
 .btn-photo-icon:active  { background: rgba(59,130,246,0.18); }
 .btn-photo-icon.has-photo { background: rgba(59,130,246,0.14); border-color: rgba(59,130,246,0.4); }
 
+/* ── Photo zone в модалке (вставка из буфера / файл / drag&drop) ── */
+.photo-zone {
+  position: relative;
+  border: 1.5px dashed var(--border-acc); border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.03);
+  padding: 18px 14px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  transition: border-color .15s, background .15s;
+  outline: none;
+}
+.photo-zone:hover,
+.photo-zone:focus-visible { border-color: rgba(59,130,246,0.55); background: rgba(59,130,246,0.05); }
+.photo-zone.dragover { border-color: #60a5fa; background: rgba(59,130,246,0.1); }
+.photo-zone.uploading { opacity: .55; pointer-events: none; }
+.photo-zone-thumb {
+  width: 100%; max-height: 200px; object-fit: cover;
+  border-radius: 8px; display: block;
+}
+.photo-zone-hint {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  text-align: center; color: var(--text3); pointer-events: none;
+}
+.photo-zone-hint.compact svg { display: none; }
+.photo-zone-hint.compact { gap: 2px; }
+.photo-zone-hint svg { color: var(--text2); margin-bottom: 2px; }
+.photo-zone-title { font-size: 13px; font-weight: 600; color: var(--text2); }
+.photo-zone-sub { font-size: 11px; color: var(--text3); }
+.photo-zone-remove {
+  padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
+  color: #f87171; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+}
+.photo-zone-remove:hover { background: rgba(239,68,68,0.18); }
+body.theme-light .photo-zone { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.15); }
+body.theme-light .photo-zone:hover,
+body.theme-light .photo-zone:focus-visible { border-color: rgba(37,99,235,0.5); background: rgba(37,99,235,0.04); }
+body.theme-light .photo-zone-title { color: #475569; }
+
 /* ── Archive toggle ────────────────────────────────────────────── */
 .btn-archive-toggle {
   display: flex; align-items: center; gap: 8px; width: 100%;

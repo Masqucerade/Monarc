@@ -568,6 +568,20 @@
         <label>Заметка</label>
         <textarea id="pkg-description" placeholder="Описание, особые отметки…" rows="2"></textarea>
       </div>
+      <!-- Фото товара: вставка из буфера / файл / drag&drop (только при редактировании) -->
+      <div class="form-group" id="pkg-photo-group" style="display:none">
+        <label>Фото товара</label>
+        <div id="pkg-photo-zone" class="photo-zone" tabindex="0">
+          <img id="pkg-photo-thumb" class="photo-zone-thumb" alt="Фото товара" style="display:none" />
+          <div class="photo-zone-hint" id="pkg-photo-hint">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            <div class="photo-zone-title" id="pkg-photo-title">Вставьте из буфера (Ctrl/⌘+V)</div>
+            <div class="photo-zone-sub">или нажмите, чтобы выбрать · перетащите сюда</div>
+          </div>
+          <button type="button" id="pkg-photo-remove" class="photo-zone-remove" style="display:none">✕ Удалить фото</button>
+        </div>
+        <input type="file" id="pkg-photo-file" accept="image/*" style="display:none" />
+      </div>
       <button type="submit" class="btn-primary" id="form-submit">Сохранить</button>
     </form>
   </div>
