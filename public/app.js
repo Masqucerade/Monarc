@@ -195,22 +195,17 @@ function pkgCard(p, isAdmin) {
         <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${total > 0 ? (isGb ? '~£' + fmt(total) : '~' + fmt(total) + ' ₽') : '—'}</div></div>
       </div>`;
 
-  // Фото товара: админ видит сразу, клиент — кнопку «Посмотреть фото»
+  // Фото товара: и админ, и клиент видят фото сразу в карточке.
+  // Тап по фото открывает его на весь экран; у админа — ещё кнопка удаления.
+  const photoLabel = `${esc(p.tracking_number)}${p.item_name ? ' · ' + esc(p.item_name) : ''}`;
   const photoBlock = (!isPending && p.photo_url)
-    ? isAdmin
-      ? `<div class="pkg-photo-wrap">
-          <img src="${p.photo_url}" class="pkg-photo-img" alt="Фото товара" loading="lazy" />
-          <button class="btn-photo-delete" data-id="${p.id}" title="Удалить фото">✕</button>
-        </div>`
-      : `<button class="btn-view-photo" data-photo="${p.photo_url}"
-            data-label="${p.tracking_number}${p.item_name ? ' · ' + p.item_name : ''}">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <circle cx="8.5" cy="8.5" r="1.5"/>
-            <path d="m21 15-5-5L5 21"/>
-          </svg>
-          📸 Посмотреть фото товара
-        </button>`
+    ? `<div class="pkg-photo-wrap pkg-photo-view" data-photo="${p.photo_url}" data-label="${photoLabel}">
+        <img src="${p.photo_url}" class="pkg-photo-img" alt="Фото товара" loading="lazy" />
+        <div class="pkg-photo-badge">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+        </div>
+        ${isAdmin ? `<button class="btn-photo-delete" data-id="${p.id}" title="Удалить фото">✕</button>` : ''}
+      </div>`
     : '';
 
   // Иконка-кнопка прикрепить/заменить фото (только для админа, не-pending)
@@ -1490,9 +1485,9 @@ document.addEventListener('click', async e => {
     return;
   }
 
-  const viewPhotoBtn = e.target.closest('.btn-view-photo');
-  if (viewPhotoBtn) {
-    openPhotoLightbox(viewPhotoBtn.dataset.photo, viewPhotoBtn.dataset.label);
+  const viewPhoto = e.target.closest('.pkg-photo-view');
+  if (viewPhoto && !e.target.closest('.btn-photo-delete')) {
+    openPhotoLightbox(viewPhoto.dataset.photo, viewPhoto.dataset.label);
     return;
   }
 

@@ -333,9 +333,20 @@ body::after {
   border-radius: 10px; overflow: hidden;
   background: rgba(255,255,255,0.03);
 }
+.pkg-photo-view { cursor: zoom-in; }
 .pkg-photo-img {
   width: 100%; height: auto; display: block;
-  max-height: 240px; object-fit: cover; border-radius: 10px;
+  max-height: 260px; object-fit: cover; border-radius: 10px;
+  transition: transform .25s ease;
+}
+.pkg-photo-view:active .pkg-photo-img { transform: scale(0.99); }
+/* Значок «открыть на весь экран» */
+.pkg-photo-badge {
+  position: absolute; bottom: 8px; right: 8px;
+  width: 28px; height: 28px; border-radius: 8px;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; pointer-events: none; z-index: 2;
 }
 .btn-photo-delete {
   position: absolute; top: 8px; right: 8px;
