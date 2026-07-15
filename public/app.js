@@ -387,10 +387,13 @@ function updateInvoiceBadge(invoices) {
 /* ── Invoices Tab ────────────────────────────────────────────────── */
 async function loadInvoices() {
   const list = document.getElementById('invoices-list');
-  list.innerHTML = skeletonCards(2);
+  if (!state._invLoaded) list.innerHTML = skeletonCards(2);
   try {
-    state.invoices = await apiFetch('/api/invoices');
-    renderInvoices();
+    const fresh = await apiFetch('/api/invoices');
+    const changed = !state._invLoaded || JSON.stringify(fresh) !== JSON.stringify(state.invoices);
+    state.invoices = fresh;
+    state._invLoaded = true;
+    if (changed) renderInvoices();
     updateInvoiceBadge(state.invoices);
   } catch (e) {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">${e.message}</div></div>`;
@@ -529,7 +532,9 @@ async function loadPackages() {
   state.packages.forEach(p => { prevStatuses[p.id] = p.status; });
 
   const list = document.getElementById('packages-list');
-  list.innerHTML = skeletonCards();
+  // Скелетон показываем только при самой первой загрузке — чтобы список не мигал
+  // при фильтрах, поиске и автообновлении
+  if (!state._pkgLoaded) list.innerHTML = skeletonCards();
   try {
     let url = '/api/packages';
     const params = new URLSearchParams();
@@ -537,9 +542,16 @@ async function loadPackages() {
     if (state.adminSearch) params.set('search', state.adminSearch);
     if (state.adminClient) params.set('client', state.adminClient);
     if (params.toString()) url += '?' + params.toString();
-    state.packages = await apiFetch(url);
-    renderPackages();
-    animateChangedBadges(prevStatuses);
+    const fresh = await apiFetch(url);
+    // Перерисовываем только если данные реально изменились — тихое автообновление
+    // не сбрасывает прокрутку и не мигает, когда ничего не поменялось
+    const changed = !state._pkgLoaded || JSON.stringify(fresh) !== JSON.stringify(state.packages);
+    state.packages = fresh;
+    state._pkgLoaded = true;
+    if (changed) {
+      renderPackages();
+      animateChangedBadges(prevStatuses);
+    }
     if (state.user?.is_admin) { loadStats(); loadClientFilter(); }
   } catch (e) {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">${e.message}</div></div>`;
