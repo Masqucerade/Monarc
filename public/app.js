@@ -210,16 +210,13 @@ function pkgCard(p, isAdmin) {
         <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${total > 0 ? (isGb ? '~£' + fmt(total) : '~' + fmt(total) + ' ₽') : '—'}</div></div>
       </div>`;
 
-  // Фото товара: и админ, и клиент видят фото сразу в карточке.
-  // Тап по фото открывает его на весь экран; у админа — ещё кнопка удаления.
+  // Фото товара — компактная миниатюра справа от названия и деталей.
+  // Тап по миниатюре открывает фото на весь экран; у админа — ✕ для удаления.
   const photoLabel = `${esc(p.tracking_number)}${p.item_name ? ' · ' + esc(p.item_name) : ''}`;
-  const photoBlock = (!isPending && p.photo_url)
-    ? `<div class="pkg-photo-wrap pkg-photo-view" data-photo="${p.photo_url}" data-label="${photoLabel}">
-        <img src="${p.photo_url}" class="pkg-photo-img" alt="Фото товара" loading="lazy" />
-        <div class="pkg-photo-badge">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-        </div>
-        ${isAdmin ? `<button class="btn-photo-delete" data-id="${p.id}" title="Удалить фото">✕</button>` : ''}
+  const photoThumb = (!isPending && p.photo_url)
+    ? `<div class="pkg-thumb pkg-photo-view" data-photo="${p.photo_url}" data-label="${photoLabel}">
+        <img src="${p.photo_url}" alt="Фото товара" loading="lazy" />
+        ${isAdmin ? `<button class="btn-photo-delete pkg-thumb-del" data-id="${p.id}" title="Удалить фото">✕</button>` : ''}
       </div>`
     : '';
 
@@ -299,9 +296,13 @@ function pkgCard(p, isAdmin) {
         ${statusBadge(p.status)}
       </div>
       <div class="pkg-country"><span>${c.flag}</span>${c.name}</div>
-      ${p.item_name ? `<div class="pkg-item-name">${esc(p.item_name)}</div>` : ''}
-      ${detailsRow}
-      ${photoBlock}
+      <div class="pkg-body">
+        <div class="pkg-body-main">
+          ${p.item_name ? `<div class="pkg-item-name">${esc(p.item_name)}</div>` : ''}
+          ${detailsRow}
+        </div>
+        ${photoThumb}
+      </div>
       ${clientRow}
       ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;position:relative;z-index:1">${esc(p.description)}</div>` : ''}
       ${deliveryBlock}
