@@ -111,13 +111,6 @@ function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function fmtDate(str) {
   return new Date(str).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-// Короткая дата для шапки карточки: «3 июл.», год — только если не текущий
-function fmtDateShort(str) {
-  const d = new Date(str);
-  const opts = { day: 'numeric', month: 'short' };
-  if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
-  return d.toLocaleDateString('ru-RU', opts);
-}
 
 function calcRate(weight, country = 'eu') {
   if (!weight || weight <= 0) return { type: '—', rate: 0 };
@@ -140,26 +133,6 @@ function calcRate(weight, country = 'eu') {
 function statusBadge(status) {
   const s = STATUS[status] || { label: status, cls: '' };
   return `<span class="status-badge ${s.cls}">${s.label}</span>`;
-}
-
-/* ── Progress stepper on card ────────────────────────────────────── */
-// processing показываем на этапе «Склад»; delivered — все этапы пройдены
-const PROGRESS_STEPS = [
-  { label: 'Ожидается' },
-  { label: 'Склад' },
-  { label: 'В пути' },
-  { label: 'Готово' },
-];
-const PROGRESS_IDX = { pending: 0, received: 1, processing: 1, shipped: 2, ready: 3, delivered: 4 };
-
-function pkgProgress(status) {
-  const idx = PROGRESS_IDX[status];
-  if (idx === undefined) return '';
-  return `<div class="pkg-progress">${PROGRESS_STEPS.map((s, i) => `
-    <div class="pkg-step${i < idx ? ' done' : ''}${i === idx ? ' current' : ''}">
-      <div class="pkg-step-bar"></div>
-      <div class="pkg-step-label">${s.label}</div>
-    </div>`).join('')}</div>`;
 }
 
 /* ── Photo lightbox ──────────────────────────────────────────────── */
@@ -226,13 +199,15 @@ function pkgCard(p, isAdmin) {
   const total = p.total || (r.rate > 0 ? (isGb ? r.rate : Math.round((p.weight || 0) * r.rate)) : 0);
   const isPending = p.status === 'pending';
 
-  const rateStr = r.rate > 0 ? (isGb ? '£' + fmt(r.rate) + '/кор.' : fmt(r.rate) + ' ₽/кг') : '';
+  const shineEl = '';
+
   const detailsRow = isPending
-    ? `<div class="pkg-pending-hint">Ожидаем поступления на склад — статус обновится автоматически</div>`
-    : `<div class="pkg-summary">
-        <div class="pkg-sum-item"><span class="pkg-sum-label">Вес</span><span class="pkg-sum-val">${p.weight > 0 ? p.weight + ' кг' : '—'}</span></div>
-        <div class="pkg-sum-item"><span class="pkg-sum-label">Тариф</span><span class="pkg-sum-val">${r.rate > 0 ? esc(r.type) : '—'}</span>${r.rate > 0 ? `<span class="pkg-sum-sub">${rateStr}</span>` : ''}</div>
-        <div class="pkg-sum-item pkg-sum-cost"><span class="pkg-sum-label">Стоимость</span><span class="pkg-sum-val">${total > 0 ? (isGb ? '~£' + fmt(total) : '~' + fmt(total) + ' ₽') : '—'}</span></div>
+    ? `<div style="font-size:13px;color:var(--text3);margin-bottom:12px;position:relative;z-index:1">Ожидаем поступления — менеджер обновит статус</div>`
+    : `<div class="pkg-details">
+        <div class="pkg-detail-item"><div class="pkg-detail-label">Вес</div><div class="pkg-detail-val">${p.weight > 0 ? p.weight + ' кг' : 'Не указан'}</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">Тариф</div><div class="pkg-detail-val">${r.rate > 0 ? r.type : '—'}</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">${isGb ? '£/кор.' : '₽/кг'}</div><div class="pkg-detail-val">${r.rate > 0 ? (isGb ? '£' + fmt(r.rate) : fmt(r.rate) + ' ₽') : '—'}</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${total > 0 ? (isGb ? '~£' + fmt(total) : '~' + fmt(total) + ' ₽') : '—'}</div></div>
       </div>`;
 
   // Фото товара: и админ, и клиент видят фото сразу в карточке.
@@ -305,45 +280,32 @@ function pkgCard(p, isAdmin) {
         </button>
       </div>`;
 
-  // Шапка: название товара (если есть) — заголовок, иначе заголовком служит трек
-  const hasName = !!p.item_name;
-  const titleRow = hasName
-    ? `<div class="pkg-title">${esc(p.item_name)}</div>`
-    : p.no_tracking
-      ? `<div class="pkg-title">Посылка</div>`
-      : `<div class="pkg-title-row">
-          <div class="pkg-title pkg-title-track">${esc(p.tracking_number)}</div>
-          <button class="copy-btn" data-copy="${esc(p.tracking_number)}" title="Скопировать трек">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          </button>
-        </div>`;
-
-  // Трек-пилюля: тап по всей пилюле копирует номер
-  const trackRow = p.no_tracking
-    ? `<div class="pkg-track-pill pkg-track-none">Трек не получен${isAdmin ? `<span class="pkg-no-track-id">${esc(p.tracking_number)}</span>` : ''}</div>`
-    : hasName
-      ? `<button type="button" class="pkg-track-pill" data-copy="${esc(p.tracking_number)}" title="Скопировать трек">
-          <span class="pkg-track-pill-num">${esc(p.tracking_number)}</span>
-          <svg class="pkg-track-pill-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        </button>`
-      : '';
-
   return `
     <div class="pkg-card status-${p.status}" data-id="${p.id}">
-      <div class="pkg-head">
-        <div class="pkg-head-main">
-          ${titleRow}
-          <div class="pkg-sub"><span>${c.flag}</span> ${c.name} · ${fmtDateShort(p.created_at)}</div>
+      ${shineEl}
+      <div class="pkg-top">
+        <div class="pkg-tracking">
+          <div class="pkg-track-label">Трек-номер</div>
+          <div class="pkg-track-row">
+            ${p.no_tracking
+              ? `<span class="pkg-track-num pkg-no-track">Трек не получен</span>
+                 ${isAdmin ? `<span class="pkg-no-track-id">${esc(p.tracking_number)}</span>` : ''}`
+              : `<span class="pkg-track-num">${esc(p.tracking_number)}</span>
+                 <button class="copy-btn" data-copy="${esc(p.tracking_number)}">
+                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                 </button>`}
+          </div>
         </div>
         ${statusBadge(p.status)}
       </div>
-      ${pkgProgress(p.status)}
-      ${trackRow}
+      <div class="pkg-country"><span>${c.flag}</span>${c.name}</div>
+      ${p.item_name ? `<div class="pkg-item-name">${esc(p.item_name)}</div>` : ''}
       ${detailsRow}
       ${photoBlock}
       ${clientRow}
-      ${p.description ? `<div class="pkg-note">${esc(p.description)}</div>` : ''}
+      ${p.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;position:relative;z-index:1">${esc(p.description)}</div>` : ''}
       ${deliveryBlock}
+      <div style="font-size:11px;color:var(--text3);position:relative;z-index:1">Добавлено: ${fmtDate(p.created_at)}</div>
       ${actionsRow}
     </div>`;
 }
@@ -545,18 +507,21 @@ async function handleInvoiceFormSubmit(e) {
 function skeletonCards(n = 3) {
   return Array.from({ length: n }, () => `
     <div class="pkg-card" style="pointer-events:none">
-      <div class="pkg-head">
+      <div class="pkg-top">
         <div>
-          <div class="skel" style="width:150px;height:16px;margin-bottom:7px"></div>
-          <div class="skel" style="width:95px;height:11px"></div>
+          <div class="skel" style="width:78px;height:10px;margin-bottom:8px"></div>
+          <div class="skel" style="width:175px;height:18px"></div>
         </div>
         <div class="skel" style="width:90px;height:24px;border-radius:99px"></div>
       </div>
-      <div style="display:flex;gap:5px;margin-bottom:14px">
-        ${Array.from({length:4}, () => `<div class="skel" style="flex:1;height:4px;border-radius:99px"></div>`).join('')}
+      <div class="skel" style="width:68px;height:12px;margin:4px 0 14px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-bottom:10px">
+        ${Array.from({length:4}, () => `<div>
+          <div class="skel" style="width:38px;height:9px;margin-bottom:6px"></div>
+          <div class="skel" style="width:62px;height:16px"></div>
+        </div>`).join('')}
       </div>
-      <div class="skel" style="width:100%;height:36px;border-radius:10px;margin-bottom:12px"></div>
-      <div class="skel" style="width:100%;height:52px;border-radius:10px"></div>
+      <div class="skel" style="width:115px;height:10px;margin-top:4px"></div>
     </div>`).join('');
 }
 
