@@ -67,20 +67,22 @@
         </div>
         <div id="admin-stats" class="stats-row" style="display:none">
           <div class="stat-chip active" data-filter="all">Все <span id="stat-total">0</span></div>
-          <div class="stat-chip" data-filter="pending">Ожидается <span id="stat-pending">0</span></div>
-          <div class="stat-chip" data-filter="received">Склад <span id="stat-received">0</span></div>
-          <div class="stat-chip" data-filter="shipped">Путь <span id="stat-shipped">0</span></div>
-          <div class="stat-chip" data-filter="ready">Готово <span id="stat-ready">0</span></div>
+          <div class="stat-chip" data-filter="pending"><i class="stat-dot dot-pending"></i>Ожидается <span id="stat-pending">0</span></div>
+          <div class="stat-chip" data-filter="received"><i class="stat-dot dot-received"></i>Склад <span id="stat-received">0</span></div>
+          <div class="stat-chip" data-filter="shipped"><i class="stat-dot dot-shipped"></i>Путь <span id="stat-shipped">0</span></div>
+          <div class="stat-chip" data-filter="ready"><i class="stat-dot dot-ready"></i>Готово <span id="stat-ready">0</span></div>
         </div>
-        <div id="admin-search" class="search-box" style="display:none">
-          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input type="text" id="admin-search-input" placeholder="Поиск по трек-номеру или клиенту…" />
-        </div>
-        <div id="admin-client-filter" class="client-filter" style="display:none">
-          <svg class="client-filter-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          <select id="client-filter-select">
-            <option value="">Все клиенты</option>
-          </select>
+        <div class="filters-row">
+          <div id="admin-search" class="search-box" style="display:none">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="admin-search-input" placeholder="Трек или клиент…" />
+          </div>
+          <div id="admin-client-filter" class="client-filter" style="display:none">
+            <svg class="client-filter-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <select id="client-filter-select">
+              <option value="">Все клиенты</option>
+            </select>
+          </div>
         </div>
       </div>
       <div id="packages-list" class="card-list"></div>
