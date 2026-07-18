@@ -436,7 +436,20 @@ body.theme-light .photo-zone-title { color: #475569; }
   background: rgba(255,255,255,0.03); border: 1px solid var(--border);
   border-radius: 8px; padding: 10px 12px; margin-bottom: 10px;
 }
-.inv-details-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; font-weight: 600; }
+.inv-details-block { cursor: pointer; transition: background 0.15s; }
+.inv-details-block:active { background: rgba(255,255,255,0.07); }
+.inv-details-label {
+  font-size: 11px; color: var(--text3); margin-bottom: 4px; font-weight: 600;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.inv-details-copy {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 600; color: var(--text2);
+  padding: 2px 8px; border-radius: 99px;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+}
+body.theme-light .inv-details-block:active { background: rgba(0,0,0,0.06); }
+body.theme-light .inv-details-copy { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.1); color: #475569; }
 .inv-details-text { font-size: 13px; color: var(--text2); line-height: 1.5; word-break: break-all; }
 .inv-date { font-size: 11px; color: var(--text3); margin-bottom: 12px; }
 .inv-actions { display: flex; gap: 8px; margin-bottom: 4px; }
@@ -707,25 +720,13 @@ body.theme-light .photo-zone-title { color: #475569; }
 .pkg-actions-extra .btn-photo-icon,
 .pkg-actions-extra .btn-delete { flex: 1; width: auto; }
 
-/* Кнопки клиента: написать менеджеру + убрать из списка */
-.btn-msg-manager {
-  flex: 1.5; height: 38px; border-radius: var(--radius-xs);
-  background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25);
-  color: #60a5fa; font-size: 13px; font-weight: 500;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  white-space: nowrap; overflow: hidden; transition: background 0.15s;
-}
-.btn-msg-manager:active { background: rgba(59,130,246,0.18); }
-.btn-msg-manager svg { flex-shrink: 0; }
+/* Кнопка клиента: убрать из списка */
 .btn-client-remove {
   flex: 1; height: 38px; border-radius: var(--radius-xs);
   background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.18);
   color: #f87171; font-size: 13px; font-weight: 500; transition: background 0.15s;
 }
 .btn-client-remove:active { background: rgba(239,68,68,0.15); }
-body.theme-light .btn-msg-manager {
-  background: rgba(37,99,235,0.07); border-color: rgba(37,99,235,0.25); color: #2563eb;
-}
 body.theme-light .btn-client-remove {
   background: rgba(220,38,38,0.05); border-color: rgba(220,38,38,0.2); color: #dc2626;
 }

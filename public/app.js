@@ -285,9 +285,6 @@ function pkgCard(p, isAdmin) {
     ? `<button class="btn-make-invoice btn-action-icon" data-id="${p.id}" title="Выставить счёт">💰</button>`
     : '';
 
-  // Сообщение менеджеру с номером посылки (копируется при тапе)
-  const msgText = `Здравствуйте! Вопрос по посылке ${p.no_tracking && p.item_name ? p.item_name : p.tracking_number}`;
-
   // Быстрая смена статуса: одна кнопка «→ следующий этап»
   const next = NEXT_STATUS[p.status];
   const mainBtns = next
@@ -313,11 +310,7 @@ function pkgCard(p, isAdmin) {
         </button>
       </div>`
     : `<div class="pkg-actions">
-        <button class="btn-msg-manager" data-msg="${esc(msgText)}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          Написать менеджеру
-        </button>
-        <button class="btn-client-remove" data-id="${p.id}">Убрать</button>
+        <button class="btn-client-remove" data-id="${p.id}">Убрать из моего списка</button>
       </div>`;
 
   return `
@@ -372,8 +365,13 @@ function invoiceCard(inv, isAdmin) {
     : '';
 
   const detailsBlock = inv.payment_details
-    ? `<div class="inv-details-block">
-        <div class="inv-details-label">📋 Реквизиты</div>
+    ? `<div class="inv-details-block" title="Скопировать реквизиты">
+        <div class="inv-details-label">📋 Реквизиты
+          <span class="inv-details-copy">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Копировать
+          </span>
+        </div>
         <div class="inv-details-text">${esc(inv.payment_details).replace(/\n/g, '<br>')}</div>
       </div>`
     : '';
@@ -1814,6 +1812,14 @@ document.addEventListener('click', async e => {
     return;
   }
 
+  // Тап по блоку реквизитов в счёте — копирование
+  const invDetails = e.target.closest('.inv-details-block');
+  if (invDetails) {
+    const text = invDetails.querySelector('.inv-details-text')?.innerText || '';
+    if (text) { copyText(text, 'Реквизиты скопированы'); haptic('light'); }
+    return;
+  }
+
   // Счёт из посылки — открываем модалку счёта с предзаполнением
   const makeInvBtn = e.target.closest('.btn-make-invoice');
   if (makeInvBtn) {
@@ -1831,18 +1837,6 @@ document.addEventListener('click', async e => {
     return;
   }
 
-  // Написать менеджеру: копируем сообщение с треком и открываем чат
-  const msgBtn = e.target.closest('.btn-msg-manager');
-  if (msgBtn) {
-    copyText(msgBtn.dataset.msg, 'Сообщение с номером скопировано — вставьте в чат');
-    haptic('light');
-    setTimeout(() => {
-      const url = 'https://t.me/euro_monarc';
-      if (tg?.openTelegramLink) tg.openTelegramLink(url);
-      else window.open(url, '_blank');
-    }, 400);
-    return;
-  }
 
   const chip = e.target.closest('.stat-chip');
   if (chip) {
