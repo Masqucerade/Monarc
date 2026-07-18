@@ -65,6 +65,7 @@ const state = {
   adminClient: '',
   countryFilter: '',
   sortMode: localStorage.getItem('monarc_sort') || 'created', // 'created' | 'updated' | 'status'
+  groupSel: null, // режим объединения: { ids: Set, key: clientKey }
   editingId: null,
   calcCountry: 'eu',
   calcTariff: null,
@@ -142,6 +143,24 @@ function calcRate(weight, country = 'eu') {
 function statusBadge(status) {
   const s = STATUS[status] || { label: status, cls: '' };
   return `<span class="status-badge ${s.cls}">${s.label}</span>`;
+}
+
+// Итоговая стоимость посылки (та же логика, что в карточке)
+function pkgTotal(p) {
+  if (p.custom_total != null) return p.custom_total;
+  if (p.total) return p.total;
+  const r = (p.type && p.rate) ? { type: p.type, rate: p.rate } : calcRate(p.weight, p.country || 'eu');
+  return r.rate > 0 ? (p.country === 'gb' ? r.rate : Math.round((p.weight || 0) * r.rate)) : 0;
+}
+function fmtCost(p, t) { return p.country === 'gb' ? '£' + fmt(t) : fmt(t) + ' ₽'; }
+
+// Один ли клиент у двух посылок (совпадение по любому из идентификаторов)
+function sameClient(a, b) {
+  if (a.client_id && b.client_id) return String(a.client_id) === String(b.client_id);
+  if (a.client_username && b.client_username)
+    return a.client_username.toLowerCase() === b.client_username.toLowerCase();
+  if (a.client_name && b.client_name) return a.client_name === b.client_name;
+  return false;
 }
 
 /* ── Photo lightbox ──────────────────────────────────────────────── */
@@ -285,6 +304,11 @@ function pkgCard(p, isAdmin) {
     ? `<button class="btn-make-invoice btn-action-icon" data-id="${p.id}" title="Выставить счёт">💰</button>`
     : '';
 
+  // Объединение с другими посылками клиента (режим выбора)
+  const groupIconBtn = isAdmin && !p.group_id
+    ? `<button class="btn-group-start btn-action-icon" data-id="${p.id}" title="Объединить посылки">🔗</button>`
+    : '';
+
   // Быстрая смена статуса: компактная зелёная кнопка «→» рядом с «Редактировать»
   const next = NEXT_STATUS[p.status];
   const mainBtns = `<button class="btn-edit-status" data-id="${p.id}">Редактировать</button>` + (next
@@ -302,6 +326,7 @@ function pkgCard(p, isAdmin) {
       </div>
       <div class="pkg-actions-extra">
         ${invoiceIconBtn}
+        ${groupIconBtn}
         ${deliveryIconBtn}
         ${photoIconBtn}
         <button class="btn-delete" data-id="${p.id}" title="Удалить">
@@ -343,6 +368,61 @@ function pkgCard(p, isAdmin) {
       ${deliveryBlock}
       <div style="font-size:11px;color:var(--text3);position:relative;z-index:1">Добавлено: ${fmtDate(p.created_at)}</div>
       ${actionsRow}
+    </div>`;
+}
+
+/* ── Group Card: объединённые посылки одного клиента ─────────────── */
+function groupCard(list, isAdmin) {
+  const gid = list[0].group_id;
+  const first = list[0];
+  const clientLabel = first.client_name || (first.client_username ? '@' + first.client_username : 'Клиент');
+
+  let sumRub = 0, sumGbp = 0, weight = 0;
+  const items = list.map(p => {
+    const c = COUNTRIES[p.country || 'eu'] || COUNTRIES.eu;
+    const t = pkgTotal(p);
+    if (t > 0) { p.country === 'gb' ? sumGbp += t : sumRub += t; }
+    weight += p.weight || 0;
+    const st = STATUS[p.status] || { label: p.status, cls: '' };
+    return `<div class="group-item${isAdmin ? ' tappable' : ''}" data-id="${p.id}">
+      <div class="group-item-main">
+        <div class="group-item-name">${esc(p.item_name || p.tracking_number)}</div>
+        <div class="group-item-sub">${c.flag} ${p.no_tracking ? 'Без трека' : esc(p.tracking_number)}${p.weight > 0 ? ' · ' + p.weight + ' кг' : ''}</div>
+      </div>
+      <div class="group-item-right">
+        <span class="status-badge ${st.cls}">${st.label}</span>
+        <div class="group-item-cost">${t > 0 ? fmtCost(p, t) : '—'}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const sumStr = [sumRub > 0 ? fmt(sumRub) + ' ₽' : null, sumGbp > 0 ? '£' + fmt(sumGbp) : null]
+    .filter(Boolean).join(' + ') || '—';
+  const weightStr = weight > 0 ? Math.round(weight * 100) / 100 + ' кг' : '';
+
+  const actions = isAdmin
+    ? `<div class="pkg-actions">
+        <button class="btn-group-invoice" data-gid="${gid}">💰 Выставить один счёт</button>
+        <button class="btn-ungroup btn-action-icon" data-gid="${gid}" title="Разъединить">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.84 12.25 21 10.09a5 5 0 0 0-7.07-7.07l-1.13 1.13"/><path d="M5.17 11.75 3 13.91a5 5 0 0 0 7.07 7.07l1.12-1.12"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+        </button>
+      </div>`
+    : '';
+
+  return `
+    <div class="pkg-card pkg-group" data-gid="${gid}">
+      <div class="pkg-top">
+        <div>
+          <div class="pkg-track-label">Объединённые посылки</div>
+          <div class="group-client">🔗 ${esc(clientLabel)} · ${list.length} шт.</div>
+        </div>
+      </div>
+      <div class="group-items">${items}</div>
+      <div class="group-total">
+        <span>Итого${weightStr ? ' · ' + weightStr : ''}</span>
+        <span class="group-total-sum">${sumStr}</span>
+      </div>
+      ${actions}
     </div>`;
 }
 
@@ -667,7 +747,8 @@ function renderPackagesTable() {
     const c = COUNTRIES[p.country];
     const client = `${esc(p.client_name || '')}${p.client_username ? ' @' + esc(p.client_username) : ''}${!p.client_name && !p.client_username && p.client_id ? 'ID: ' + esc(p.client_id) : ''}`;
     return `<tr data-id="${p.id}" title="Нажмите чтобы редактировать">
-      <td class="track">${p.no_tracking ? '<span class="muted">Без трека</span> ' : ''}${esc(p.tracking_number)}</td>
+      <td class="track">${p.group_id ? '<span title="В группе">🔗 </span>' : ''}${p.no_tracking ? '<span class="muted">Без трека</span> ' : ''}${esc(p.tracking_number)}</td>
+      <td><div class="tbl-item">${p.photo_url ? `<img src="${p.photo_url}" class="tbl-thumb" loading="lazy" alt="" />` : ''}<span>${p.item_name ? esc(p.item_name) : '<span class="muted">—</span>'}</span></div></td>
       <td>${statusBadge(p.status)}</td>
       <td>${c ? c.flag + ' ' + c.name : '—'}</td>
       <td>${p.weight ? p.weight + ' кг' : '—'}</td>
@@ -681,7 +762,7 @@ function renderPackagesTable() {
 
   list.innerHTML = `<div class="pkg-table-wrap"><table class="pkg-table">
     <thead><tr>
-      <th>Трек-номер</th><th>Статус</th><th>Страна</th><th>Вес</th><th>Тариф</th>
+      <th>Трек-номер</th><th>Товар</th><th>Статус</th><th>Страна</th><th>Вес</th><th>Тариф</th>
       <th>Стоимость</th><th>Клиент</th><th>Заметка</th><th>Добавлено</th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -702,9 +783,16 @@ function renderPackages() {
   list.classList.toggle('table-mode', isTableMode());
   if (isTableMode()) return renderPackagesTable();
 
-  const pkgs     = visiblePackages();
-  const active   = pkgs.filter(p => p.status !== 'delivered');
-  const archived = pkgs.filter(p => p.status === 'delivered');
+  const pkgs = visiblePackages();
+
+  // Группы: рендерятся одной карточкой на месте первой посылки группы;
+  // группа уходит в архив, только когда все её посылки завершены
+  const groupsAll = {};
+  pkgs.forEach(p => { if (p.group_id) (groupsAll[p.group_id] = groupsAll[p.group_id] || []).push(p); });
+  const groupArchived = gid => groupsAll[gid].every(x => x.status === 'delivered');
+
+  const active   = pkgs.filter(p => p.group_id ? !groupArchived(p.group_id) : p.status !== 'delivered');
+  const archived = pkgs.filter(p => p.group_id ? groupArchived(p.group_id) : p.status === 'delivered');
 
   if (!active.length && !archived.length) {
     list.innerHTML = `<div class="empty-state">
@@ -715,7 +803,17 @@ function renderPackages() {
     return;
   }
 
-  let html = active.map(p => pkgCard(p, isAdmin)).join('');
+  const renderList = arr => {
+    const seen = new Set();
+    return arr.map(p => {
+      if (!p.group_id) return pkgCard(p, isAdmin);
+      if (seen.has(p.group_id)) return '';
+      seen.add(p.group_id);
+      return groupCard(groupsAll[p.group_id], isAdmin);
+    }).join('');
+  };
+
+  let html = renderList(active);
 
   if (archived.length) {
     html += `
@@ -725,7 +823,7 @@ function renderPackages() {
         <svg class="archive-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <div id="pkg-archive-list" class="archive-list" style="display:none">
-        ${archived.map(p => pkgCard(p, isAdmin)).join('')}
+        ${renderList(archived)}
       </div>`;
   }
 
@@ -742,6 +840,35 @@ function renderPackages() {
     btn.querySelector('.archive-chevron').style.transform = open ? '' : 'rotate(180deg)';
     haptic('light');
   });
+
+  // Автообновление в режиме выбора не должно сбрасывать пометки
+  if (state.groupSel) updateGroupModeUI();
+}
+
+/* ── Режим объединения посылок ───────────────────────────────────── */
+function updateGroupModeUI() {
+  const bar = document.getElementById('group-bar');
+  if (!state.groupSel) { if (bar) bar.style.display = 'none'; return; }
+  if (bar) {
+    bar.style.display = 'flex';
+    document.getElementById('group-bar-count').textContent = `Выбрано: ${state.groupSel.ids.size}`;
+  }
+  document.querySelectorAll('.pkg-card[data-id]').forEach(card => {
+    const pkg = state.packages.find(x => x.id === parseInt(card.dataset.id));
+    if (!pkg) return;
+    const selectable = !pkg.group_id && sameClient(state.groupSel.base, pkg);
+    card.classList.toggle('group-selected', state.groupSel.ids.has(pkg.id));
+    card.classList.toggle('group-dim', !selectable);
+  });
+  document.querySelectorAll('.pkg-group').forEach(card => card.classList.add('group-dim'));
+}
+
+function exitGroupMode() {
+  state.groupSel = null;
+  const bar = document.getElementById('group-bar');
+  if (bar) bar.style.display = 'none';
+  document.querySelectorAll('.group-selected, .group-dim').forEach(el =>
+    el.classList.remove('group-selected', 'group-dim'));
 }
 
 /* ── Client filter (admin) ───────────────────────────────────────── */
@@ -1654,6 +1781,21 @@ function copyText(text, msg = 'Скопировано!') {
 
 /* ── Events ──────────────────────────────────────────────────────── */
 document.addEventListener('click', async e => {
+  // Режим объединения: тапы по карточкам выбирают посылки, остальное заблокировано
+  if (state.groupSel && !e.target.closest('#group-bar')) {
+    const card = e.target.closest('.pkg-card');
+    if (card && card.dataset.id) {
+      const pkg = state.packages.find(x => x.id === parseInt(card.dataset.id));
+      if (!pkg || pkg.group_id) return;
+      if (!sameClient(state.groupSel.base, pkg)) { toast('Объединять можно посылки одного клиента', 'error'); return; }
+      state.groupSel.ids.has(pkg.id) ? state.groupSel.ids.delete(pkg.id) : state.groupSel.ids.add(pkg.id);
+      haptic('light');
+      if (!state.groupSel.ids.size) { exitGroupMode(); return; }
+      updateGroupModeUI();
+    }
+    return;
+  }
+
   if (e.target.closest('[data-copy]')) { copyText(e.target.closest('[data-copy]').dataset.copy); return; }
   if (e.target.closest('#copy-my-id')) { copyText(document.getElementById('my-id-value').textContent); return; }
 
@@ -1811,6 +1953,59 @@ document.addEventListener('click', async e => {
     return;
   }
 
+  // Старт режима объединения (из бургера карточки)
+  const groupStartBtn = e.target.closest('.btn-group-start');
+  if (groupStartBtn) {
+    const pkg = state.packages.find(x => x.id === parseInt(groupStartBtn.dataset.id));
+    if (pkg) {
+      state.groupSel = { ids: new Set([pkg.id]), base: pkg };
+      updateGroupModeUI();
+      toast('Выберите посылки этого клиента для объединения');
+      haptic('light');
+    }
+    return;
+  }
+
+  // Один счёт на группу: сумма и клиент подставляются сами
+  const groupInvBtn = e.target.closest('.btn-group-invoice');
+  if (groupInvBtn) {
+    const members = state.packages.filter(x => x.group_id === groupInvBtn.dataset.gid);
+    if (members.length) {
+      const first = members[0];
+      let sumRub = 0, sumGbp = 0;
+      members.forEach(p => { const t = pkgTotal(p); if (t > 0) { p.country === 'gb' ? sumGbp += t : sumRub += t; } });
+      const useGbp = sumGbp > 0 && sumRub === 0;
+      openInvoiceModal({
+        client: first.client_username ? '@' + first.client_username : (first.client_id || ''),
+        amount: (useGbp ? sumGbp : sumRub) || '',
+        currency: useGbp ? 'GBP' : 'RUB',
+        description: `Доставка ${members.length} посылок: ${members.map(p => p.item_name || p.tracking_number).join(', ')}`,
+      });
+      haptic('light');
+    }
+    return;
+  }
+
+  // Разъединить группу
+  const ungroupBtn = e.target.closest('.btn-ungroup');
+  if (ungroupBtn) {
+    try {
+      await apiFetch('/api/packages/ungroup', { method: 'POST', body: JSON.stringify({ group_id: ungroupBtn.dataset.gid }) });
+      toast('Группа разъединена', 'success');
+      haptic('medium');
+      loadPackages();
+    } catch (err) { toast(err.message, 'error'); }
+    return;
+  }
+
+  // Тап по позиции внутри группы — редактирование (админ)
+  const groupItem = e.target.closest('.group-item.tappable');
+  if (groupItem) {
+    const pkg = state.packages.find(x => x.id === parseInt(groupItem.dataset.id));
+    if (pkg) openEditModal(pkg);
+    return;
+  }
+
   // Тап по блоку реквизитов в счёте — копирование
   const invDetails = e.target.closest('.inv-details-block');
   if (invDetails) {
@@ -1869,6 +2064,19 @@ document.getElementById('client-filter-select')?.addEventListener('change', e =>
   haptic('light');
   loadPackages();
 });
+document.getElementById('group-bar-cancel')?.addEventListener('click', exitGroupMode);
+document.getElementById('group-bar-apply')?.addEventListener('click', async () => {
+  const ids = [...(state.groupSel?.ids || [])];
+  if (ids.length < 2) { toast('Выберите минимум две посылки', 'error'); return; }
+  try {
+    await apiFetch('/api/packages/group', { method: 'POST', body: JSON.stringify({ ids }) });
+    toast('Посылки объединены', 'success');
+    haptic('medium');
+    exitGroupMode();
+    loadPackages();
+  } catch (err) { toast(err.message, 'error'); }
+});
+
 const sortSelect = document.getElementById('sort-select');
 if (sortSelect) {
   sortSelect.value = state.sortMode;

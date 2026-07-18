@@ -449,6 +449,32 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
   res.json(enrichPackage(pkg));
 });
 
+// ── Группировка посылок: объединение нескольких в одну «связку» ───
+// (для выставления одного счёта и компактного отображения)
+app.post('/api/packages/group', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number) : [];
+  if (ids.length < 2) return res.status(400).json({ error: 'Выберите минимум две посылки' });
+  const db = readDB();
+  const pkgs = db.packages.filter(p => ids.includes(p.id));
+  if (pkgs.length < 2) return res.status(404).json({ error: 'Посылки не найдены' });
+  const gid = 'g' + Date.now();
+  pkgs.forEach(p => { p.group_id = gid; p.updated_at = now(); });
+  writeDB(db);
+  res.json({ group_id: gid, count: pkgs.length });
+});
+
+app.post('/api/packages/ungroup', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const { group_id } = req.body;
+  if (!group_id) return res.status(400).json({ error: 'group_id обязателен' });
+  const db = readDB();
+  let n = 0;
+  db.packages.forEach(p => { if (p.group_id === group_id) { delete p.group_id; p.updated_at = now(); n++; } });
+  writeDB(db);
+  res.json({ ungrouped: n });
+});
+
 // Admin: delete
 app.delete('/api/packages/:id', authMiddleware, (req, res) => {
   if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
