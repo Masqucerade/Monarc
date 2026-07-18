@@ -72,6 +72,23 @@
           <div class="stat-chip" data-filter="shipped">Путь <span id="stat-shipped">0</span></div>
           <div class="stat-chip" data-filter="ready">Готово <span id="stat-ready">0</span></div>
         </div>
+        <div id="admin-toolbar" class="admin-toolbar" style="display:none">
+          <div class="country-chips">
+            <button class="country-chip active" data-country="" title="Все страны">🌍</button>
+            <button class="country-chip" data-country="eu" title="Европа">🇪🇺</button>
+            <button class="country-chip" data-country="gb" title="Великобритания">🇬🇧</button>
+            <button class="country-chip" data-country="cn" title="Китай">🇨🇳</button>
+            <button class="country-chip" data-country="jp" title="Япония">🇯🇵</button>
+          </div>
+          <div class="sort-wrap" title="Сортировка">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5h10M11 9h7M11 13h4"/><path d="m3 17 3 3 3-3"/><path d="M6 18V4"/></svg>
+            <select id="sort-select">
+              <option value="created">Новые</option>
+              <option value="updated">Изменённые</option>
+              <option value="status">По статусу</option>
+            </select>
+          </div>
+        </div>
         <div id="admin-search" class="search-box" style="display:none">
           <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input type="text" id="admin-search-input" placeholder="Поиск по трек-номеру или клиенту…" />

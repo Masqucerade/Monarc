@@ -56,6 +56,8 @@ const state = {
   adminFilter: 'all',
   adminSearch: '',
   adminClient: '',
+  countryFilter: '',
+  sortMode: localStorage.getItem('monarc_sort') || 'created', // 'created' | 'updated' | 'status'
   editingId: null,
   calcCountry: 'eu',
   calcTariff: null,
@@ -459,14 +461,16 @@ function switchView(view) {
   const search   = document.getElementById('admin-search');
 
   const layoutToggle = document.getElementById('layout-toggle');
+  const toolbar = document.getElementById('admin-toolbar');
   if (view === 'packages') {
     pkgList.style.display = ''; invList.style.display = 'none';
-    if (state.user?.is_admin) { stats.style.display = 'flex'; search.style.display = 'flex'; }
+    if (state.user?.is_admin) { stats.style.display = 'flex'; search.style.display = 'flex'; toolbar.style.display = 'flex'; }
     if (layoutToggle && (webToken || state.user?.is_admin)) layoutToggle.style.display = 'flex';
   } else {
     pkgList.style.display = 'none'; invList.style.display = '';
     if (stats) stats.style.display = 'none';
     if (search) search.style.display = 'none';
+    if (toolbar) toolbar.style.display = 'none';
     if (layoutToggle) layoutToggle.style.display = 'none';
     loadInvoices();
   }
@@ -581,20 +585,39 @@ function isTableMode() {
   return state.layoutMode === 'table' && (!!webToken || !!state.user?.is_admin);
 }
 
+/* ── Фильтр по стране + сортировка (локально, поверх данных сервера) ── */
+const STATUS_ORDER = { pending: 0, received: 1, processing: 2, shipped: 3, ready: 4, delivered: 5 };
+
+function visiblePackages() {
+  let arr = state.packages;
+  if (state.countryFilter) arr = arr.filter(p => (p.country || 'eu') === state.countryFilter);
+  arr = arr.slice();
+  const newest = key => (a, b) => new Date(b[key] || b.created_at) - new Date(a[key] || a.created_at);
+  if (state.sortMode === 'status') {
+    arr.sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9) || newest('created_at')(a, b));
+  } else if (state.sortMode === 'updated') {
+    arr.sort(newest('updated_at'));
+  } else {
+    arr.sort(newest('created_at'));
+  }
+  return arr;
+}
+
 // Табличный вид — та же разметка, что у Live-таблицы
 function renderPackagesTable() {
   const list = document.getElementById('packages-list');
+  const pkgs = visiblePackages();
 
-  if (!state.packages.length) {
+  if (!pkgs.length) {
     list.innerHTML = `<div class="empty-state">
       <div class="empty-icon">📭</div>
       <div class="empty-title">Посылок нет</div>
-      <div class="empty-sub">Нажмите «+» чтобы добавить</div>
+      <div class="empty-sub">${state.countryFilter ? 'По этой стране ничего не найдено' : 'Нажмите «+» чтобы добавить'}</div>
     </div>`;
     return;
   }
 
-  const rows = state.packages.map(p => {
+  const rows = pkgs.map(p => {
     const c = COUNTRIES[p.country];
     const client = `${esc(p.client_name || '')}${p.client_username ? ' @' + esc(p.client_username) : ''}${!p.client_name && !p.client_username && p.client_id ? 'ID: ' + esc(p.client_id) : ''}`;
     return `<tr data-id="${p.id}" title="Нажмите чтобы редактировать">
@@ -633,14 +656,15 @@ function renderPackages() {
   list.classList.toggle('table-mode', isTableMode());
   if (isTableMode()) return renderPackagesTable();
 
-  const active   = state.packages.filter(p => p.status !== 'delivered');
-  const archived = state.packages.filter(p => p.status === 'delivered');
+  const pkgs     = visiblePackages();
+  const active   = pkgs.filter(p => p.status !== 'delivered');
+  const archived = pkgs.filter(p => p.status === 'delivered');
 
   if (!active.length && !archived.length) {
     list.innerHTML = `<div class="empty-state">
       <div class="empty-icon">📭</div>
       <div class="empty-title">${isAdmin ? 'Посылок нет' : 'Ваших посылок нет'}</div>
-      <div class="empty-sub">${isAdmin ? 'Нажмите «+» чтобы добавить' : 'Перейдите в «Поиск» и добавьте трек'}</div>
+      <div class="empty-sub">${state.countryFilter ? 'По этой стране ничего не найдено' : isAdmin ? 'Нажмите «+» чтобы добавить' : 'Перейдите в «Поиск» и добавьте трек'}</div>
     </div>`;
     return;
   }
@@ -1681,6 +1705,17 @@ document.addEventListener('click', async e => {
     chip.classList.add('active');
     state.adminFilter = chip.dataset.filter;
     loadPackages();
+    return;
+  }
+
+  // Фильтр по стране — локально, без запроса к серверу
+  const cchip = e.target.closest('.country-chip');
+  if (cchip) {
+    document.querySelectorAll('.country-chip').forEach(c => c.classList.remove('active'));
+    cchip.classList.add('active');
+    state.countryFilter = cchip.dataset.country;
+    haptic('light');
+    renderPackages();
   }
 });
 
@@ -1696,6 +1731,16 @@ document.getElementById('client-filter-select')?.addEventListener('change', e =>
   haptic('light');
   loadPackages();
 });
+const sortSelect = document.getElementById('sort-select');
+if (sortSelect) {
+  sortSelect.value = state.sortMode;
+  sortSelect.addEventListener('change', e => {
+    state.sortMode = e.target.value;
+    localStorage.setItem('monarc_sort', e.target.value);
+    haptic('light');
+    renderPackages();
+  });
+}
 document.getElementById('pkg-form').addEventListener('submit', handleFormSubmit);
 document.getElementById('client-pkg-form').addEventListener('submit', handleClientFormSubmit);
 document.getElementById('invoice-form').addEventListener('submit', handleInvoiceFormSubmit);
@@ -1994,6 +2039,7 @@ async function init() {
     if (state.user.is_admin) {
       document.getElementById('btn-add').style.display = 'flex';
       document.getElementById('admin-stats').style.display = 'flex';
+      document.getElementById('admin-toolbar').style.display = 'flex';
       document.getElementById('admin-search').style.display = 'flex';
       document.getElementById('admin-backup').style.display = 'block';
 
