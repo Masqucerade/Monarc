@@ -2060,13 +2060,13 @@ body.theme-light .btn-web-refresh {
   .stat-chip span {
     opacity: 1; font-size: 22px; font-weight: 700; line-height: 1.1; color: #fff;
   }
-  .stat-chip[data-filter="pending"]  span { color: #22d3ee; }
+  .stat-chip[data-filter="pending"]  span { color: #94a3b8; }
   .stat-chip[data-filter="received"] span { color: #fb923c; }
   .stat-chip[data-filter="shipped"]  span { color: #60a5fa; }
   .stat-chip[data-filter="ready"]    span { color: #4ade80; }
   .stat-chip.active { box-shadow: 0 0 0 1px var(--border-acc); }
   body.theme-light .stat-chip span { color: #0f172a; }
-  body.theme-light .stat-chip[data-filter="pending"]  span { color: #0891b2; }
+  body.theme-light .stat-chip[data-filter="pending"]  span { color: #64748b; }
   body.theme-light .stat-chip[data-filter="received"] span { color: #ea580c; }
   body.theme-light .stat-chip[data-filter="shipped"]  span { color: #2563eb; }
   body.theme-light .stat-chip[data-filter="ready"]    span { color: #16a34a; }
