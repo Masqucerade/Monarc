@@ -793,6 +793,7 @@ app.delete('/api/payment-templates/:id', authMiddleware, (req, res) => {
 function formatAmount(amount, currency) {
   if (currency === 'RUB') return Number(amount).toLocaleString('ru-RU') + ' ₽';
   if (currency === 'EUR') return Number(amount).toLocaleString('ru-RU') + ' €';
+  if (currency === 'GBP') return Number(amount).toLocaleString('ru-RU') + ' £';
   return amount + ' USDT';
 }
 

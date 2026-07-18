@@ -264,9 +264,18 @@ function pkgCard(p, isAdmin) {
     ? `<button class="btn-req-delivery btn-action-icon" data-id="${p.id}" title="Запросить доставку">📬</button>`
     : '';
 
+  // Счёт из посылки: клиент, сумма и описание подставятся сами
+  const invoiceIconBtn = isAdmin
+    ? `<button class="btn-make-invoice btn-action-icon" data-id="${p.id}" title="Выставить счёт">💰</button>`
+    : '';
+
+  // Сообщение менеджеру с номером посылки (копируется при тапе)
+  const msgText = `Здравствуйте! Вопрос по посылке ${p.no_tracking && p.item_name ? p.item_name : p.tracking_number}`;
+
   const actionsRow = isAdmin
     ? `<div class="pkg-actions">
         <button class="btn-edit-status" data-id="${p.id}">Редактировать</button>
+        ${invoiceIconBtn}
         ${deliveryIconBtn}
         ${photoIconBtn}
         <button class="btn-delete" data-id="${p.id}">
@@ -274,9 +283,11 @@ function pkgCard(p, isAdmin) {
         </button>
       </div>`
     : `<div class="pkg-actions">
-        <button class="btn-client-remove" data-id="${p.id}" style="width:100%;padding:8px;border-radius:var(--radius-xs);background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.18);color:#f87171;font-size:13px;font-weight:500">
-          Убрать из моего списка
+        <button class="btn-msg-manager" data-msg="${esc(msgText)}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Написать менеджеру
         </button>
+        <button class="btn-client-remove" data-id="${p.id}">Убрать</button>
       </div>`;
 
   return `
@@ -317,6 +328,7 @@ function pkgCard(p, isAdmin) {
 function fmtAmount(amount, currency) {
   if (currency === 'RUB') return Number(amount).toLocaleString('ru-RU') + ' ₽';
   if (currency === 'EUR') return Number(amount).toLocaleString('ru-RU') + ' €';
+  if (currency === 'GBP') return Number(amount).toLocaleString('ru-RU') + ' £';
   return amount + ' USDT';
 }
 
@@ -478,11 +490,18 @@ function switchView(view) {
 }
 
 /* ── Invoice Modal ───────────────────────────────────────────────── */
-async function openInvoiceModal() {
+async function openInvoiceModal(prefill) {
   document.getElementById('invoice-form').reset();
   showModal('invoice-modal-overlay');
   loadClientTemplates();
   await loadPaymentTemplates();
+  // Предзаполнение из карточки посылки («Выставить счёт»)
+  if (prefill) {
+    if (prefill.client)      document.getElementById('inv-client').value = prefill.client;
+    if (prefill.amount)      document.getElementById('inv-amount').value = prefill.amount;
+    if (prefill.currency)    document.getElementById('inv-currency').value = prefill.currency;
+    if (prefill.description) document.getElementById('inv-description').value = prefill.description;
+  }
 }
 
 async function handleInvoiceFormSubmit(e) {
@@ -1561,12 +1580,18 @@ function toast(msg, type = '') {
 }
 
 /* ── Clipboard ───────────────────────────────────────────────────── */
-function copyText(text) {
-  if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => toast('Скопировано!')); return; }
-  const el = document.createElement('textarea');
-  el.value = text; el.style.cssText = 'position:fixed;opacity:0';
-  document.body.appendChild(el); el.select(); document.execCommand('copy');
-  document.body.removeChild(el); toast('Скопировано!');
+function copyText(text, msg = 'Скопировано!') {
+  const fallback = () => {
+    const el = document.createElement('textarea');
+    el.value = text; el.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(el); el.select(); document.execCommand('copy');
+    document.body.removeChild(el); toast(msg);
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => toast(msg)).catch(fallback);
+    return;
+  }
+  fallback();
 }
 
 /* ── Events ──────────────────────────────────────────────────────── */
@@ -1698,6 +1723,36 @@ document.addEventListener('click', async e => {
 
   const fillDelivery = e.target.closest('.btn-fill-delivery');
   if (fillDelivery) { openDeliveryModal(fillDelivery.dataset.id); return; }
+
+  // Счёт из посылки — открываем модалку счёта с предзаполнением
+  const makeInvBtn = e.target.closest('.btn-make-invoice');
+  if (makeInvBtn) {
+    const pkg = state.packages.find(x => x.id === parseInt(makeInvBtn.dataset.id));
+    if (pkg) {
+      const isGbPkg = (pkg.country || 'eu') === 'gb';
+      openInvoiceModal({
+        client: pkg.client_username ? '@' + pkg.client_username : (pkg.client_id || ''),
+        amount: pkg.total || '',
+        currency: isGbPkg ? 'GBP' : 'RUB',
+        description: `Доставка ${pkg.item_name || pkg.tracking_number}`,
+      });
+      haptic('light');
+    }
+    return;
+  }
+
+  // Написать менеджеру: копируем сообщение с треком и открываем чат
+  const msgBtn = e.target.closest('.btn-msg-manager');
+  if (msgBtn) {
+    copyText(msgBtn.dataset.msg, 'Сообщение с номером скопировано — вставьте в чат');
+    haptic('light');
+    setTimeout(() => {
+      const url = 'https://t.me/euro_monarc';
+      if (tg?.openTelegramLink) tg.openTelegramLink(url);
+      else window.open(url, '_blank');
+    }, 400);
+    return;
+  }
 
   const chip = e.target.closest('.stat-chip');
   if (chip) {

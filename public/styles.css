@@ -681,6 +681,29 @@ body.theme-light .photo-zone-title { color: #475569; }
 }
 .btn-delete:active { background: rgba(239,68,68,0.18); }
 
+/* Кнопки клиента: написать менеджеру + убрать из списка */
+.btn-msg-manager {
+  flex: 1.5; height: 38px; border-radius: var(--radius-xs);
+  background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25);
+  color: #60a5fa; font-size: 13px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  white-space: nowrap; overflow: hidden; transition: background 0.15s;
+}
+.btn-msg-manager:active { background: rgba(59,130,246,0.18); }
+.btn-msg-manager svg { flex-shrink: 0; }
+.btn-client-remove {
+  flex: 1; height: 38px; border-radius: var(--radius-xs);
+  background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.18);
+  color: #f87171; font-size: 13px; font-weight: 500; transition: background 0.15s;
+}
+.btn-client-remove:active { background: rgba(239,68,68,0.15); }
+body.theme-light .btn-msg-manager {
+  background: rgba(37,99,235,0.07); border-color: rgba(37,99,235,0.25); color: #2563eb;
+}
+body.theme-light .btn-client-remove {
+  background: rgba(220,38,38,0.05); border-color: rgba(220,38,38,0.2); color: #dc2626;
+}
+
 /* ── Empty State ───────────────────────────────────────────────── */
 .empty-state {
   text-align: center; padding: 48px 24px;
