@@ -159,15 +159,23 @@ function calcRate(weight, country = 'eu') {
 
 function enrichPackage(p) {
   const isGb = p.country === 'gb'; // UK — фикс. цена за коробку в £
+  let out;
   if (p.tariff_type && p.tariff_rate) {
     const total = p.tariff_rate > 0
       ? (isGb ? Math.round(p.tariff_rate) : (p.weight > 0 ? Math.round(p.weight * p.tariff_rate) : 0))
       : 0;
-    return { ...p, type: p.tariff_type, rate: p.tariff_rate, total };
+    out = { ...p, type: p.tariff_type, rate: p.tariff_rate, total };
+  } else {
+    const r = calcRate(p.weight, p.country || 'eu');
+    const total = r.rate > 0 ? (isGb ? r.rate : Math.round((p.weight || 0) * r.rate)) : 0;
+    out = { ...p, ...r, total };
   }
-  const r = calcRate(p.weight, p.country || 'eu');
-  const total = r.rate > 0 ? (isGb ? r.rate : Math.round((p.weight || 0) * r.rate)) : 0;
-  return { ...p, ...r, total };
+  // Своя стоимость от админа перекрывает расчёт; 0 = «стоимость не показывать»
+  if (p.custom_total != null) {
+    out.total = p.custom_total;
+    if (!(p.tariff_type && p.tariff_rate)) { out.type = p.custom_total > 0 ? 'Свой' : '—'; out.rate = 0; }
+  }
+  return out;
 }
 
 // ── Notifications ─────────────────────────────────────────────────
@@ -301,7 +309,7 @@ app.post('/api/packages', authMiddleware, (req, res) => {
   }
 
   const initStatus = status || 'received';
-  const { tariff_type, tariff_rate } = req.body;
+  const { tariff_type, tariff_rate, custom_total } = req.body;
   const pkg = {
     id: db.nextId++,
     tracking_number: track,
@@ -314,6 +322,7 @@ app.post('/api/packages', authMiddleware, (req, res) => {
     country: country || 'eu',
     tariff_type: tariff_type || null,
     tariff_rate: tariff_rate ? parseFloat(tariff_rate) : null,
+    custom_total: custom_total != null && custom_total !== '' && !isNaN(parseFloat(custom_total)) ? parseFloat(custom_total) : null,
     status: initStatus,
     description: description || null,
     source: 'admin',
@@ -416,8 +425,14 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
   if (client_id)                 pkg.client_id = client_id;
   if (client_username !== undefined) pkg.client_username = client_username ? client_username.replace('@', '') : null;
   if (client_name !== undefined)     pkg.client_name = client_name || null;
-  pkg.tariff_type = tariff_type || null;
-  pkg.tariff_rate = tariff_rate ? parseFloat(tariff_rate) : null;
+  // Тариф и свою стоимость меняем только если поле пришло в запросе —
+  // частичные PUT (быстрая смена статуса и т.п.) их не затирают
+  if ('tariff_type' in req.body) pkg.tariff_type = tariff_type || null;
+  if ('tariff_rate' in req.body) pkg.tariff_rate = tariff_rate ? parseFloat(tariff_rate) : null;
+  if ('custom_total' in req.body) {
+    const ct = req.body.custom_total;
+    pkg.custom_total = ct != null && ct !== '' && !isNaN(parseFloat(ct)) ? parseFloat(ct) : null;
+  }
   pkg.updated_at = now();
 
   if (status && status !== prev) {

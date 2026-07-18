@@ -681,6 +681,32 @@ body.theme-light .photo-zone-title { color: #475569; }
 }
 .btn-delete:active { background: rgba(239,68,68,0.18); }
 
+/* Быстрая смена статуса */
+.btn-next-status {
+  flex: 1; height: 38px; padding: 0 12px; border-radius: var(--radius-xs);
+  background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
+  color: #4ade80; font-size: 13px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background 0.15s;
+}
+.btn-next-status:active { background: rgba(34,197,94,0.2); }
+.btn-next-status:disabled { opacity: 0.5; }
+.btn-edit-compact {
+  flex: 0 0 44px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Бургер «⋯» и раскрывающийся ряд действий */
+.btn-card-menu.active { background: rgba(255,255,255,0.12); color: var(--text); }
+.pkg-actions-extra {
+  display: none; gap: 8px; padding-top: 8px;
+  position: relative; z-index: 1;
+}
+.pkg-actions-extra.open { display: flex; animation: fadeInUp 0.18s ease-out; }
+.pkg-actions-extra .btn-action-icon,
+.pkg-actions-extra .btn-photo-icon,
+.pkg-actions-extra .btn-delete { flex: 1; width: auto; }
+
 /* Кнопки клиента: написать менеджеру + убрать из списка */
 .btn-msg-manager {
   flex: 1.5; height: 38px; border-radius: var(--radius-xs);
@@ -1374,6 +1400,11 @@ body.theme-light .btn-edit-status {
   background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.15); color: #1e293b;
 }
 body.theme-light .btn-edit-status:active { background: rgba(0,0,0,0.09); }
+body.theme-light .btn-next-status {
+  background: rgba(22,163,74,0.08); border-color: rgba(22,163,74,0.35); color: #15803d;
+}
+body.theme-light .btn-next-status:active { background: rgba(22,163,74,0.16); }
+body.theme-light .btn-card-menu.active { background: rgba(0,0,0,0.1); color: #0f172a; }
 body.theme-light .btn-action-icon {
   background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1);
 }

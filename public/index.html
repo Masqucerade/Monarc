@@ -547,10 +547,16 @@
           </select>
         </div>
       </div>
-      <!-- Tariff selector (for GB / CN / JP) -->
+      <!-- Tariff selector -->
       <div id="pkg-tariff-wrap" class="form-group" style="display:none">
         <label>Тариф</label>
         <select id="pkg-tariff"></select>
+        <input type="number" id="pkg-tariff-rate" placeholder="Своя ставка" min="0" step="0.01" style="display:none;margin-top:8px" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label>Стоимость доставки (итог)</label>
+        <input type="number" id="pkg-custom-total" placeholder="Авто по тарифу" min="0" step="0.01" autocomplete="off" />
+        <div style="margin-top:5px;font-size:11.5px;color:var(--text3)">Впишите свою сумму · 0 — не показывать стоимость · пусто — авто</div>
       </div>
       <div class="form-group">
         <label>Клиент</label>

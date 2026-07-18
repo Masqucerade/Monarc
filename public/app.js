@@ -37,6 +37,13 @@ const STATUS = {
   delivered:  { label: 'Завершён', cls: 'badge-delivered' },
 };
 
+// Быстрая смена статуса: следующий этап (processing — необязательный,
+// быстрая цепочка его пропускает, вручную доступен в редактировании)
+const NEXT_STATUS = {
+  pending: 'received', received: 'shipped', processing: 'shipped',
+  shipped: 'ready', ready: 'delivered',
+};
+
 const INV_STATUS = {
   pending:   { label: '⏳ Ожидает оплаты',   cls: 'inv-badge-pending'   },
   reviewing: { label: '🔔 На проверке',       cls: 'inv-badge-reviewing' },
@@ -196,9 +203,18 @@ function pkgCard(p, isAdmin) {
   const country = p.country || 'eu';
   const c = COUNTRIES[country] || COUNTRIES.eu;
   const isGb = country === 'gb'; // UK — фикс. цена за коробку в £
+  // Своя стоимость (custom_total) перекрывает расчёт; 0 = «не показывать»
+  const hasCustom = p.custom_total != null;
   // Используем сохранённый тариф если он есть, иначе пересчитываем
-  const r = (p.type && p.rate) ? { type: p.type, rate: p.rate } : calcRate(p.weight, country);
-  const total = p.total || (r.rate > 0 ? (isGb ? r.rate : Math.round((p.weight || 0) * r.rate)) : 0);
+  const r = hasCustom && !(p.tariff_type && p.tariff_rate)
+    ? { type: p.custom_total > 0 ? 'Свой' : '—', rate: 0 }
+    : ((p.type && p.rate) ? { type: p.type, rate: p.rate } : calcRate(p.weight, country));
+  const total = hasCustom
+    ? p.custom_total
+    : (p.total || (r.rate > 0 ? (isGb ? r.rate : Math.round((p.weight || 0) * r.rate)) : 0));
+  const costStr = total > 0
+    ? (hasCustom ? '' : '~') + (isGb ? '£' + fmt(total) : fmt(total) + ' ₽')
+    : '—';
   const isPending = p.status === 'pending';
 
   const shineEl = '';
@@ -207,9 +223,9 @@ function pkgCard(p, isAdmin) {
     ? `<div style="font-size:13px;color:var(--text3);margin-bottom:12px;position:relative;z-index:1">Ожидаем поступления — менеджер обновит статус</div>`
     : `<div class="pkg-details">
         <div class="pkg-detail-item"><div class="pkg-detail-label">Вес</div><div class="pkg-detail-val">${p.weight > 0 ? p.weight + ' кг' : 'Не указан'}</div></div>
-        <div class="pkg-detail-item"><div class="pkg-detail-label">Тариф</div><div class="pkg-detail-val">${r.rate > 0 ? r.type : '—'}</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">Тариф</div><div class="pkg-detail-val">${r.rate > 0 ? r.type : (hasCustom && total > 0 ? 'Свой' : '—')}</div></div>
         <div class="pkg-detail-item"><div class="pkg-detail-label">${isGb ? '£/кор.' : '₽/кг'}</div><div class="pkg-detail-val">${r.rate > 0 ? (isGb ? '£' + fmt(r.rate) : fmt(r.rate) + ' ₽') : '—'}</div></div>
-        <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${total > 0 ? (isGb ? '~£' + fmt(total) : '~' + fmt(total) + ' ₽') : '—'}</div></div>
+        <div class="pkg-detail-item"><div class="pkg-detail-label">Стоимость</div><div class="pkg-detail-val">${costStr}</div></div>
       </div>`;
 
   // Фото товара — компактная миниатюра справа от названия и деталей.
@@ -272,13 +288,27 @@ function pkgCard(p, isAdmin) {
   // Сообщение менеджеру с номером посылки (копируется при тапе)
   const msgText = `Здравствуйте! Вопрос по посылке ${p.no_tracking && p.item_name ? p.item_name : p.tracking_number}`;
 
+  // Быстрая смена статуса: одна кнопка «→ следующий этап»
+  const next = NEXT_STATUS[p.status];
+  const mainBtns = next
+    ? `<button class="btn-next-status" data-id="${p.id}" data-next="${next}">→ ${STATUS[next].label}</button>
+       <button class="btn-edit-status btn-edit-compact" data-id="${p.id}" title="Редактировать">
+         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+       </button>`
+    : `<button class="btn-edit-status" data-id="${p.id}">Редактировать</button>`;
+
   const actionsRow = isAdmin
     ? `<div class="pkg-actions">
-        <button class="btn-edit-status" data-id="${p.id}">Редактировать</button>
+        ${mainBtns}
+        <button class="btn-card-menu btn-action-icon" title="Ещё действия">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+        </button>
+      </div>
+      <div class="pkg-actions-extra">
         ${invoiceIconBtn}
         ${deliveryIconBtn}
         ${photoIconBtn}
-        <button class="btn-delete" data-id="${p.id}">
+        <button class="btn-delete" data-id="${p.id}" title="Удалить">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         </button>
       </div>`
@@ -645,7 +675,7 @@ function renderPackagesTable() {
       <td>${c ? c.flag + ' ' + c.name : '—'}</td>
       <td>${p.weight ? p.weight + ' кг' : '—'}</td>
       <td class="muted">${p.type || '—'}</td>
-      <td>${p.total ? (p.country === 'gb' ? '~£' + fmt(p.total) : '~' + fmt(p.total) + ' ₽') : '—'}</td>
+      <td>${p.total ? (p.custom_total != null ? '' : '~') + (p.country === 'gb' ? '£' + fmt(p.total) : fmt(p.total) + ' ₽') : '—'}</td>
       <td>${client || '<span class="muted">—</span>'}</td>
       <td class="muted">${esc(p.description || '')}</td>
       <td class="muted">${fmtDate(p.created_at)}</td>
@@ -763,7 +793,7 @@ async function doTrack(number) {
     const country = p.country || 'eu';
     const c = COUNTRIES[country] || COUNTRIES.eu;
     const r = (p.type && p.rate) ? { type: p.type, rate: p.rate } : calcRate(p.weight, country);
-    const total = p.total || (r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0);
+    const total = p.custom_total != null ? p.custom_total : (p.total || (r.rate > 0 ? Math.round((p.weight || 0) * r.rate) : 0));
     const owned = p.client_id === state.user?.id;
     const unclaimed = !p.client_id;
     const historyHtml = (p.history || []).map(h =>
@@ -950,9 +980,20 @@ function updateAdminTariffSelector(country) {
   const wrap = document.getElementById('pkg-tariff-wrap');
   const sel  = document.getElementById('pkg-tariff');
   const tariffs = TARIFFS[country];
-  if (!tariffs) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'flex';
-  sel.innerHTML = tariffs.map(t => `<option value="${t.name}|${t.rate}">${t.name} — ${t.label}</option>`).join('');
+  const opts = tariffs
+    ? tariffs.map(t => `<option value="${t.name}|${t.rate}">${t.name} — ${t.label}</option>`)
+    : ['<option value="">Авто по весу</option>'];
+  opts.push(`<option value="custom">✏️ Свой тариф (${country === 'gb' ? '£/кор.' : '₽/кг'})</option>`);
+  sel.innerHTML = opts.join('');
+  toggleCustomTariffInput();
+}
+
+// Поле своей ставки — видно только при «Свой тариф»
+function toggleCustomTariffInput() {
+  const sel = document.getElementById('pkg-tariff');
+  const inp = document.getElementById('pkg-tariff-rate');
+  if (inp) inp.style.display = sel?.value === 'custom' ? '' : 'none';
 }
 
 /* ── Admin Modal ─────────────────────────────────────────────────── */
@@ -993,11 +1034,21 @@ function openEditModal(pkg) {
   document.getElementById('pkg-status').value = pkg.status;
   document.getElementById('pkg-description').value = pkg.description || '';
   updateAdminTariffSelector(pkg.country || 'eu');
-  // Восстанавливаем выбранный тариф
+  // Восстанавливаем выбранный тариф (в т.ч. свой)
   if (pkg.tariff_type && pkg.tariff_rate) {
     const sel = document.getElementById('pkg-tariff');
-    if (sel) sel.value = `${pkg.tariff_type}|${pkg.tariff_rate}`;
+    if (sel) {
+      const std = `${pkg.tariff_type}|${pkg.tariff_rate}`;
+      if ([...sel.options].some(o => o.value === std)) {
+        sel.value = std;
+      } else {
+        sel.value = 'custom';
+        document.getElementById('pkg-tariff-rate').value = pkg.tariff_rate;
+      }
+      toggleCustomTariffInput();
+    }
   }
+  document.getElementById('pkg-custom-total').value = pkg.custom_total != null ? pkg.custom_total : '';
   setPkgPhotoPreview(pkg.photo_url);
   renderClientChips();
   showModal('modal-overlay');
@@ -1100,6 +1151,7 @@ function setupModalPhotoZone() {
 document.getElementById('pkg-country')?.addEventListener('change', e => {
   updateAdminTariffSelector(e.target.value);
 });
+document.getElementById('pkg-tariff')?.addEventListener('change', toggleCustomTariffInput);
 
 // Duplicate detect — инлайн при вводе трек-номера
 document.getElementById('pkg-tracking')?.addEventListener('input', e => {
@@ -1137,10 +1189,18 @@ async function handleFormSubmit(e) {
   const country = document.getElementById('pkg-country').value;
   const tariffRaw = document.getElementById('pkg-tariff')?.value;
   let tariff_type, tariff_rate;
-  if (tariffRaw && tariffRaw.includes('|')) {
+  if (tariffRaw === 'custom') {
+    const cr = parseFloat(document.getElementById('pkg-tariff-rate').value);
+    if (!isNaN(cr) && cr > 0) { tariff_type = 'Свой'; tariff_rate = cr; }
+  } else if (tariffRaw && tariffRaw.includes('|')) {
     [tariff_type, tariff_rate] = tariffRaw.split('|');
     tariff_rate = parseFloat(tariff_rate);
   }
+
+  // Своя стоимость (итог): пусто = авто по тарифу, 0 = не показывать
+  const customTotalRaw = document.getElementById('pkg-custom-total').value.trim();
+  const customTotalNum = parseFloat(customTotalRaw);
+  const custom_total = customTotalRaw !== '' && !isNaN(customTotalNum) && customTotalNum >= 0 ? customTotalNum : null;
 
   const weightVal = parseFloat(document.getElementById('pkg-weight').value);
   const body = {
@@ -1148,8 +1208,9 @@ async function handleFormSubmit(e) {
     item_name: document.getElementById('pkg-item-name').value.trim() || undefined,
     weight: isNaN(weightVal) ? 0 : weightVal,
     country,
-    tariff_type: tariff_type || undefined,
-    tariff_rate: tariff_rate || undefined,
+    tariff_type: tariff_type || null,
+    tariff_rate: tariff_rate || null,
+    custom_total,
     client_id: document.getElementById('pkg-client-id').value.trim() || undefined,
     client_username: document.getElementById('pkg-client-username').value.trim() || undefined,
     client_name: document.getElementById('pkg-client-name').value.trim() || undefined,
@@ -1723,6 +1784,35 @@ document.addEventListener('click', async e => {
 
   const fillDelivery = e.target.closest('.btn-fill-delivery');
   if (fillDelivery) { openDeliveryModal(fillDelivery.dataset.id); return; }
+
+  // Быстрая смена статуса — один тап переводит на следующий этап
+  const nextStatusBtn = e.target.closest('.btn-next-status');
+  if (nextStatusBtn) {
+    nextStatusBtn.disabled = true;
+    const ns = nextStatusBtn.dataset.next;
+    try {
+      await apiFetch(`/api/packages/${parseInt(nextStatusBtn.dataset.id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: ns }),
+      });
+      toast(`Статус: ${STATUS[ns].label}`, 'success');
+      haptic('medium');
+      loadPackages();
+    } catch (err) { toast(err.message, 'error'); nextStatusBtn.disabled = false; }
+    return;
+  }
+
+  // Бургер «⋯» — показать/скрыть доп. действия карточки
+  const cardMenuBtn = e.target.closest('.btn-card-menu');
+  if (cardMenuBtn) {
+    const extra = cardMenuBtn.closest('.pkg-card')?.querySelector('.pkg-actions-extra');
+    if (extra) {
+      extra.classList.toggle('open');
+      cardMenuBtn.classList.toggle('active', extra.classList.contains('open'));
+    }
+    haptic('light');
+    return;
+  }
 
   // Счёт из посылки — открываем модалку счёта с предзаполнением
   const makeInvBtn = e.target.closest('.btn-make-invoice');
