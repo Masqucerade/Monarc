@@ -285,14 +285,13 @@ function pkgCard(p, isAdmin) {
     ? `<button class="btn-make-invoice btn-action-icon" data-id="${p.id}" title="Выставить счёт">💰</button>`
     : '';
 
-  // Быстрая смена статуса: одна кнопка «→ следующий этап»
+  // Быстрая смена статуса: компактная зелёная кнопка «→» рядом с «Редактировать»
   const next = NEXT_STATUS[p.status];
-  const mainBtns = next
-    ? `<button class="btn-next-status" data-id="${p.id}" data-next="${next}">→ ${STATUS[next].label}</button>
-       <button class="btn-edit-status btn-edit-compact" data-id="${p.id}" title="Редактировать">
-         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-       </button>`
-    : `<button class="btn-edit-status" data-id="${p.id}">Редактировать</button>`;
+  const mainBtns = `<button class="btn-edit-status" data-id="${p.id}">Редактировать</button>` + (next
+    ? `<button class="btn-next-status btn-next-compact" data-id="${p.id}" data-next="${next}" title="→ ${STATUS[next].label}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>`
+    : '');
 
   const actionsRow = isAdmin
     ? `<div class="pkg-actions">
