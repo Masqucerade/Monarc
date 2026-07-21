@@ -18,13 +18,13 @@ const TARIFFS = {
     { name: 'До 20 кг', rate: 118, fixed: true, label: '£118 / кор. · ~2 нед.' },
   ],
   cn: [
-    { name: 'Авиа',     rate: 1200, label: '1 200 ₽/кг · 20–25 дн.' },
-    { name: 'Экспресс', rate: 3500, label: '3 500 ₽/кг · 1–6 дн.'   },
-    { name: 'Наземный', rate: 800,  label: '800 ₽/кг · 17–25 дн.'   },
+    { name: 'Авиа',     rate: 950,  label: '950 ₽/кг · 8–12 дн.'    },
+    { name: 'Экспресс', rate: 3500, label: '3 500 ₽/кг · 1–3 дн. · от 1 кг' },
+    { name: 'Наземный', rate: 700,  label: '700 ₽/кг · 13–18 дн. · от 5 кг' },
   ],
   jp: [
-    { name: 'Обычная', rate: 2000, label: '~2 000 ₽/кг · 25–30 дн.' },
-    { name: 'Быстрая', rate: 4000, label: '~4 000 ₽/кг · ~2 нед.'   },
+    { name: 'Обычная', rate: 1900, label: '~1 900 ₽/кг · 18–23 дн.' },
+    { name: 'Быстрая', rate: 3900, label: '~3 900 ₽/кг · 6–9 дн.'   },
   ],
 };
 
@@ -131,10 +131,10 @@ function calcRate(weight, country = 'eu') {
     return                  { type: 'До 20 кг', rate: 118, fixed: true };
   }
   if (country === 'cn') {
-    if (weight >= 20) return { type: 'Наземный', rate: 800 };
-    return { type: 'Авиа', rate: 1200 };
+    if (weight >= 5) return { type: 'Наземный', rate: 700 };
+    return { type: 'Авиа', rate: 950 };
   }
-  if (country === 'jp') return { type: 'Обычная', rate: 2000 };
+  if (country === 'jp') return { type: 'Обычная', rate: 1900 };
   if (weight <= 5)  return { type: 'Экспресс',    rate: 1900 };
   if (weight <= 20) return { type: 'Наземный',     rate: 1750 };
   return                   { type: 'Сборный груз', rate: 1300 };

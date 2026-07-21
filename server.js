@@ -147,10 +147,10 @@ function calcRate(weight, country = 'eu') {
     return                  { type: 'До 20 кг', rate: 118, fixed: true };
   }
   if (country === 'cn') {
-    if (weight >= 20) return { type: 'Наземный', rate: 800 };
-    return { type: 'Авиа', rate: 1200 };
+    if (weight >= 5) return { type: 'Наземный', rate: 700 };
+    return { type: 'Авиа', rate: 950 };
   }
-  if (country === 'jp') return { type: 'Обычная', rate: 2000 };
+  if (country === 'jp') return { type: 'Обычная', rate: 1900 };
   // EU default
   if (weight <= 5)  return { type: 'Экспресс',    rate: 1900 };
   if (weight <= 20) return { type: 'Наземный',     rate: 1750 };
@@ -1011,7 +1011,7 @@ app.get('/api/rates', (req, res) => {
   res.json([
     {
       id: 'eu', flag: '🇪🇺', name: 'Европа',
-      warehouse: 'Парма, Италия', delivery_days: '10–15 дней',
+      warehouse: 'Парма, Италия', delivery_days: '7–12 дней',
       note: null,
       rates: [
         { name: 'Экспресс',    price: 1900, condition: 'до 5 кг'   },
@@ -1022,12 +1022,12 @@ app.get('/api/rates', (req, res) => {
     },
     {
       id: 'cn', flag: '🇨🇳', name: 'Китай',
-      warehouse: 'Пекин, Китай', delivery_days: '17–25 дней',
+      warehouse: 'Пекин, Китай', delivery_days: '8–12 дней (авиа)',
       note: null,
       rates: [
-        { name: 'Авиа',     price: 1200, condition: '20–25 дней' },
-        { name: 'Экспресс', price: 3500, condition: '1–6 дней'   },
-        { name: 'Наземный', price: 800,  condition: 'от 20 кг · 17–25 дней' },
+        { name: 'Авиа',     price: 950,  condition: '8–12 дней' },
+        { name: 'Экспресс', price: 3500, condition: 'от 1 кг · 1–3 дня' },
+        { name: 'Наземный', price: 700,  condition: 'от 5 кг · 13–18 дней' },
       ],
       popular_stores: ['Poizon', 'GooFish (Xianyu)', 'Taobao', '1688'],
     },
@@ -1045,11 +1045,11 @@ app.get('/api/rates', (req, res) => {
     },
     {
       id: 'jp', flag: '🇯🇵', name: 'Япония',
-      warehouse: 'Катано, Япония', delivery_days: '2–4 нед.',
-      note: '* Стоимость приблизительная, зависит от количества и типа товара',
+      warehouse: 'Катано, Япония', delivery_days: '18–23 дня',
+      note: '* Стоимость приблизительная, зависит от количества и типов товара. Выкуп с Mercari — моментально, с остальных сайтов — до 1 дня',
       rates: [
-        { name: 'Обычная',  price: 2000, condition: '~25–30 дней' },
-        { name: 'Быстрая',  price: 4000, condition: '~2 недели'   },
+        { name: 'Обычная',  price: 1900, condition: '18–23 дней' },
+        { name: 'Быстрая',  price: 3900, condition: '6–9 дней'   },
       ],
       popular_stores: ['Mercari', 'Rakuten'],
     },
