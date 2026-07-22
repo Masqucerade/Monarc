@@ -25,6 +25,17 @@
   --radius-xs:    6px;
 }
 
+/* ── Эмодзи-флаги на Windows ───────────────────────────────────── */
+/* Windows не рендерит флаги (показывает буквы «GB», «IT»). Шрифт содержит
+   только глифы флагов (unicode-range) и грузится лишь когда класс включён. */
+@font-face {
+  font-family: 'TwemojiFlags';
+  src: url('https://cdn.jsdelivr.net/npm/country-flag-emoji-polyfill@0.1/dist/TwemojiCountryFlags.woff2') format('woff2');
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0060-E007F;
+  font-display: swap;
+}
+body.no-flag-emoji { font-family: 'TwemojiFlags', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+
 /* ── Reset ─────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }

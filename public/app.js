@@ -78,6 +78,18 @@ const state = {
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.expand(); tg.ready(); tg.enableClosingConfirmation(); }
 
+/* ── Эмодзи-флаги: детект поддержки (Windows показывает буквы) ───── */
+(function detectFlagEmoji() {
+  try {
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = '20px sans-serif';
+    // Без поддержки флаг рендерится двумя глифами-буквами — он заметно шире эмодзи
+    if (ctx.measureText('🇪🇺').width / ctx.measureText('🙂').width > 1.4) {
+      document.body.classList.add('no-flag-emoji');
+    }
+  } catch {}
+})();
+
 function getTgInitData() { return tg?.initData || ''; }
 function haptic(style = 'light') { tg?.HapticFeedback?.impactOccurred(style); }
 

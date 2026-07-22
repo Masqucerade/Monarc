@@ -1157,10 +1157,21 @@ app.get('/admin/live', (req, res) => {
 <meta name="theme-color" content="#08080f"/>
 <link rel="icon" type="image/svg+xml" href="${base}/favicon.svg"/>
 <title>Monarc — Live таблица</title>
+<script>
+try{
+  var _c=document.createElement('canvas').getContext('2d');
+  _c.font='20px sans-serif';
+  if(_c.measureText('\u{1F1EA}\u{1F1FA}').width/_c.measureText('\u{1F642}').width>1.4)
+    document.documentElement.classList.add('no-flag-emoji');
+}catch(e){}
+</script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Inter',-apple-system,sans-serif;background:#08080f;color:#f1f5f9;min-height:100vh}
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@900&display=swap');
+  /* Флаги на Windows: шрифт только с глифами флагов, включается детектом */
+  @font-face{font-family:'TwemojiFlags';src:url('https://cdn.jsdelivr.net/npm/country-flag-emoji-polyfill@0.1/dist/TwemojiCountryFlags.woff2') format('woff2');unicode-range:U+1F1E6-1F1FF,U+1F3F4,U+E0060-E007F;font-display:swap}
+  html.no-flag-emoji body{font-family:'TwemojiFlags','Inter',-apple-system,sans-serif}
   header{background:rgba(8,8,15,.9);border-bottom:1px solid rgba(255,255,255,.08);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;backdrop-filter:blur(16px)}
   .logo{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:900;letter-spacing:3px;color:#ffffff}
   .refresh-info{font-size:12px;color:#64748b}
