@@ -6,6 +6,7 @@ const COUNTRIES = {
   gb: { flag: '🇬🇧', name: 'Великобритания' },
   cn: { flag: '🇨🇳', name: 'Китай'   },
   jp: { flag: '🇯🇵', name: 'Япония'  },
+  us: { flag: '🇺🇸', name: 'США'     }, // тарифов по умолчанию нет — цена задаётся вручную
 };
 
 // Tariffs per country (for manual selection)
@@ -124,6 +125,7 @@ function fmtDate(str) {
 
 function calcRate(weight, country = 'eu') {
   if (!weight || weight <= 0) return { type: '—', rate: 0 };
+  if (country === 'us') return { type: '—', rate: 0 }; // США: только ручная цена
   if (country === 'gb') {
     // фиксированная цена за коробку (£)
     if (weight <= 2) return { type: 'До 2 кг',  rate: 19,  fixed: true };
@@ -992,7 +994,7 @@ async function loadRates() {
           </div>
           <div class="country-badge">⏱ ${c.delivery_days}</div>
         </div>
-        <table class="rates-table">
+        ${c.rates.length ? `<table class="rates-table">
           <thead><tr><th>Тариф</th><th>Срок / Условие</th><th>Цена</th></tr></thead>
           <tbody>
             ${c.rates.map(r => `<tr>
@@ -1001,12 +1003,12 @@ async function loadRates() {
               <td>${fmt(r.price)} ${c.price_unit || '₽/кг'}</td>
             </tr>`).join('')}
           </tbody>
-        </table>
+        </table>` : ''}
         ${c.note ? `<div class="rates-note">${c.note}</div>` : ''}
-        <div class="stores-section">
+        ${c.popular_stores.length ? `<div class="stores-section">
           <div class="stores-label">Популярные магазины</div>
           <div class="stores-list">${c.popular_stores.map(s => `<span class="store-chip">${s}</span>`).join('')}</div>
-        </div>
+        </div>` : ''}
       </div>`).join('');
   } catch {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Не удалось загрузить тарифы</div></div>`;
@@ -1105,10 +1107,19 @@ function updateAdminTariffSelector(country) {
   const sel  = document.getElementById('pkg-tariff');
   const tariffs = TARIFFS[country];
   wrap.style.display = 'flex';
-  const opts = tariffs
-    ? tariffs.map(t => `<option value="${t.name}|${t.rate}">${t.name} — ${t.label}</option>`)
-    : ['<option value="">Авто по весу</option>'];
-  opts.push(`<option value="custom">✏️ Свой тариф (${country === 'gb' ? '£/кор.' : '₽/кг'})</option>`);
+  let opts;
+  if (country === 'us') {
+    // США: тарифов по умолчанию нет — сразу свой тариф или без тарифа
+    opts = [
+      '<option value="custom">✏️ Свой тариф (₽/кг)</option>',
+      '<option value="">Без тарифа (итог вручную)</option>',
+    ];
+  } else {
+    opts = tariffs
+      ? tariffs.map(t => `<option value="${t.name}|${t.rate}">${t.name} — ${t.label}</option>`)
+      : ['<option value="">Авто по весу</option>'];
+    opts.push(`<option value="custom">✏️ Свой тариф (${country === 'gb' ? '£/кор.' : '₽/кг'})</option>`);
+  }
   sel.innerHTML = opts.join('');
   toggleCustomTariffInput();
 }

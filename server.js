@@ -140,6 +140,7 @@ function authMiddleware(req, res, next) {
 
 function calcRate(weight, country = 'eu') {
   if (!weight || weight <= 0) return { type: '—', rate: 0 };
+  if (country === 'us') return { type: '—', rate: 0 }; // США: только ручная цена
   if (country === 'gb') {
     // фиксированная цена за коробку (£)
     if (weight <= 2) return { type: 'До 2 кг',  rate: 19,  fixed: true };
@@ -1052,6 +1053,13 @@ app.get('/api/rates', (req, res) => {
         { name: 'Быстрая',  price: 3900, condition: '6–9 дней'   },
       ],
       popular_stores: ['Mercari', 'Rakuten'],
+    },
+    {
+      id: 'us', flag: '🇺🇸', name: 'США',
+      warehouse: 'США', delivery_days: 'индивидуально',
+      note: 'Сроки и стоимость доставки из США рассчитываются индивидуально — уточняйте у менеджера',
+      rates: [],
+      popular_stores: [],
     },
   ]);
 });
