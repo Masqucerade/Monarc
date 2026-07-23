@@ -424,7 +424,7 @@ function groupCard(list, isAdmin) {
     const gTotal = groupDeliveryTotal(gd);
     const parts = [];
     if (gd.weight > 0) parts.push(gd.weight + ' кг');
-    if (gd.tariff_rate > 0) parts.push((gd.tariff_type ? esc(gd.tariff_type) + ' ' : '') + fmt(gd.tariff_rate) + ' ₽/кг');
+    if (gd.tariff_rate > 0) parts.push((gd.tariff_type ? esc(gd.tariff_type) + ' ' : '') + `<span style="white-space:nowrap">${fmt(gd.tariff_rate)} ₽/кг</span>`);
     totalRow = `<div class="group-total">
       <span>Общая доставка${parts.length ? ' · ' + parts.join(' · ') : ''}</span>
       <span class="group-total-sum">${gTotal > 0 ? fmt(gTotal) + ' ₽' : '—'}</span>
@@ -910,9 +910,11 @@ function exitGroupMode() {
 
 /* ── Модалка общей доставки группы ───────────────────────────────── */
 function toggleGdRateInput() {
-  const sel = document.getElementById('gd-tariff');
-  const inp = document.getElementById('gd-tariff-rate');
-  if (inp) inp.style.display = sel?.value === 'custom' ? '' : 'none';
+  const show = document.getElementById('gd-tariff')?.value === 'custom' ? '' : 'none';
+  const inp  = document.getElementById('gd-tariff-rate');
+  const name = document.getElementById('gd-tariff-name');
+  if (inp)  inp.style.display  = show;
+  if (name) name.style.display = show;
 }
 
 function openGroupModal(gid) {
@@ -936,11 +938,16 @@ function openGroupModal(gid) {
   sel.innerHTML = opts.join('');
 
   const rateInp = document.getElementById('gd-tariff-rate');
-  rateInp.value = '';
+  const nameInp = document.getElementById('gd-tariff-name');
+  rateInp.value = ''; nameInp.value = '';
   if (gd?.tariff_rate > 0) {
     const std = `${gd.tariff_type}|${gd.tariff_rate}`;
     if ([...sel.options].some(o => o.value === std)) sel.value = std;
-    else { sel.value = 'custom'; rateInp.value = gd.tariff_rate; }
+    else {
+      sel.value = 'custom';
+      rateInp.value = gd.tariff_rate;
+      nameInp.value = gd.tariff_type !== 'Свой' ? gd.tariff_type : '';
+    }
   }
   toggleGdRateInput();
 
@@ -956,7 +963,10 @@ async function saveGroupDelivery(remove = false) {
     const tariffRaw = document.getElementById('gd-tariff').value;
     if (tariffRaw === 'custom') {
       const cr = parseFloat(document.getElementById('gd-tariff-rate').value);
-      if (!isNaN(cr) && cr > 0) { body.tariff_type = 'Свой'; body.tariff_rate = cr; }
+      if (!isNaN(cr) && cr > 0) {
+        body.tariff_type = document.getElementById('gd-tariff-name').value.trim() || 'Свой';
+        body.tariff_rate = cr;
+      }
     } else if (tariffRaw && tariffRaw.includes('|')) {
       const [t, r] = tariffRaw.split('|');
       body.tariff_type = t; body.tariff_rate = parseFloat(r);
@@ -1225,11 +1235,13 @@ function updateAdminTariffSelector(country) {
   toggleCustomTariffInput();
 }
 
-// Поле своей ставки — видно только при «Свой тариф»
+// Поля своей ставки и названия — видны только при «Свой тариф»
 function toggleCustomTariffInput() {
-  const sel = document.getElementById('pkg-tariff');
-  const inp = document.getElementById('pkg-tariff-rate');
-  if (inp) inp.style.display = sel?.value === 'custom' ? '' : 'none';
+  const show = document.getElementById('pkg-tariff')?.value === 'custom' ? '' : 'none';
+  const inp  = document.getElementById('pkg-tariff-rate');
+  const name = document.getElementById('pkg-tariff-name');
+  if (inp)  inp.style.display  = show;
+  if (name) name.style.display = show;
 }
 
 /* ── Admin Modal ─────────────────────────────────────────────────── */
@@ -1280,6 +1292,7 @@ function openEditModal(pkg) {
       } else {
         sel.value = 'custom';
         document.getElementById('pkg-tariff-rate').value = pkg.tariff_rate;
+        document.getElementById('pkg-tariff-name').value = pkg.tariff_type !== 'Свой' ? pkg.tariff_type : '';
       }
       toggleCustomTariffInput();
     }
@@ -1427,7 +1440,10 @@ async function handleFormSubmit(e) {
   let tariff_type, tariff_rate;
   if (tariffRaw === 'custom') {
     const cr = parseFloat(document.getElementById('pkg-tariff-rate').value);
-    if (!isNaN(cr) && cr > 0) { tariff_type = 'Свой'; tariff_rate = cr; }
+    if (!isNaN(cr) && cr > 0) {
+      tariff_type = document.getElementById('pkg-tariff-name').value.trim() || 'Свой';
+      tariff_rate = cr;
+    }
   } else if (tariffRaw && tariffRaw.includes('|')) {
     [tariff_type, tariff_rate] = tariffRaw.split('|');
     tariff_rate = parseFloat(tariff_rate);
