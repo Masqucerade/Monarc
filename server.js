@@ -264,7 +264,8 @@ app.get('/api/clients', authMiddleware, (req, res) => {
 // List packages
 app.get('/api/packages', authMiddleware, (req, res) => {
   const { status, search, client } = req.query;
-  let { packages } = readDB();
+  const db = readDB();
+  let { packages } = db;
 
   if (req.user.is_admin) {
     // карта username→id строится по полному списку — до фильтров
@@ -290,7 +291,10 @@ app.get('/api/packages', authMiddleware, (req, res) => {
   }
 
   packages = [...packages].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  res.json(packages.map(enrichPackage));
+  // Прикрепляем метаданные общей доставки группы (вес/тариф на всю связку)
+  res.json(packages.map(p => enrichPackage(
+    p.group_id && db.groups && db.groups[p.group_id] ? { ...p, group_delivery: db.groups[p.group_id] } : p
+  )));
 });
 
 // Admin: create package
@@ -472,8 +476,34 @@ app.post('/api/packages/ungroup', authMiddleware, (req, res) => {
   const db = readDB();
   let n = 0;
   db.packages.forEach(p => { if (p.group_id === group_id) { delete p.group_id; p.updated_at = now(); n++; } });
+  if (db.groups) delete db.groups[group_id];
   writeDB(db);
   res.json({ ungrouped: n });
+});
+
+// Общая доставка группы: единый вес и тариф на всю связку
+app.post('/api/packages/group-delivery', authMiddleware, (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const { group_id, weight, tariff_type, tariff_rate, custom_total, remove } = req.body;
+  if (!group_id) return res.status(400).json({ error: 'group_id обязателен' });
+  const db = readDB();
+  if (!db.packages.some(p => p.group_id === group_id)) {
+    return res.status(404).json({ error: 'Группа не найдена' });
+  }
+  db.groups = db.groups || {};
+  if (remove) {
+    delete db.groups[group_id];
+  } else {
+    db.groups[group_id] = {
+      weight: weight ? parseFloat(weight) : 0,
+      tariff_type: tariff_type || null,
+      tariff_rate: tariff_rate ? parseFloat(tariff_rate) : 0,
+      custom_total: custom_total != null && custom_total !== '' && !isNaN(parseFloat(custom_total)) ? parseFloat(custom_total) : null,
+    };
+  }
+  db.packages.forEach(p => { if (p.group_id === group_id) p.updated_at = now(); });
+  writeDB(db);
+  res.json({ ok: true, group_delivery: db.groups[group_id] || null });
 });
 
 // Admin: delete

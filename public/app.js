@@ -386,10 +386,18 @@ function pkgCard(p, isAdmin) {
 }
 
 /* ── Group Card: объединённые посылки одного клиента ─────────────── */
+// Итог общей доставки группы (вес × ставка, либо своя сумма)
+function groupDeliveryTotal(gd) {
+  if (!gd) return 0;
+  if (gd.custom_total != null) return gd.custom_total;
+  return gd.weight > 0 && gd.tariff_rate > 0 ? Math.round(gd.weight * gd.tariff_rate) : 0;
+}
+
 function groupCard(list, isAdmin) {
   const gid = list[0].group_id;
   const first = list[0];
   const clientLabel = first.client_name || (first.client_username ? '@' + first.client_username : 'Клиент');
+  const gd = first.group_delivery; // общая доставка: единый вес и тариф
 
   let sumRub = 0, sumGbp = 0, weight = 0;
   const items = list.map(p => {
@@ -405,18 +413,36 @@ function groupCard(list, isAdmin) {
       </div>
       <div class="group-item-right">
         <span class="status-badge ${st.cls}">${st.label}</span>
-        <div class="group-item-cost">${t > 0 ? fmtCost(p, t) : '—'}</div>
+        ${gd ? '' : `<div class="group-item-cost">${t > 0 ? fmtCost(p, t) : '—'}</div>`}
       </div>
     </div>`;
   }).join('');
 
-  const sumStr = [sumRub > 0 ? fmt(sumRub) + ' ₽' : null, sumGbp > 0 ? '£' + fmt(sumGbp) : null]
-    .filter(Boolean).join(' + ') || '—';
-  const weightStr = weight > 0 ? Math.round(weight * 100) / 100 + ' кг' : '';
+  // При общей доставке итог считается по её весу и тарифу, иначе — сумма позиций
+  let totalRow;
+  if (gd) {
+    const gTotal = groupDeliveryTotal(gd);
+    const parts = [];
+    if (gd.weight > 0) parts.push(gd.weight + ' кг');
+    if (gd.tariff_rate > 0) parts.push((gd.tariff_type ? esc(gd.tariff_type) + ' ' : '') + fmt(gd.tariff_rate) + ' ₽/кг');
+    totalRow = `<div class="group-total">
+      <span>Общая доставка${parts.length ? ' · ' + parts.join(' · ') : ''}</span>
+      <span class="group-total-sum">${gTotal > 0 ? fmt(gTotal) + ' ₽' : '—'}</span>
+    </div>`;
+  } else {
+    const sumStr = [sumRub > 0 ? fmt(sumRub) + ' ₽' : null, sumGbp > 0 ? '£' + fmt(sumGbp) : null]
+      .filter(Boolean).join(' + ') || '—';
+    const weightStr = weight > 0 ? Math.round(weight * 100) / 100 + ' кг' : '';
+    totalRow = `<div class="group-total">
+      <span>Итого${weightStr ? ' · ' + weightStr : ''}</span>
+      <span class="group-total-sum">${sumStr}</span>
+    </div>`;
+  }
 
   const actions = isAdmin
     ? `<div class="pkg-actions">
         <button class="btn-group-invoice" data-gid="${gid}">💰 Выставить один счёт</button>
+        <button class="btn-group-delivery btn-action-icon" data-gid="${gid}" title="Общий вес и тариф">⚖️</button>
         <button class="btn-ungroup btn-action-icon" data-gid="${gid}" title="Разъединить">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.84 12.25 21 10.09a5 5 0 0 0-7.07-7.07l-1.13 1.13"/><path d="M5.17 11.75 3 13.91a5 5 0 0 0 7.07 7.07l1.12-1.12"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
         </button>
@@ -432,10 +458,7 @@ function groupCard(list, isAdmin) {
         </div>
       </div>
       <div class="group-items">${items}</div>
-      <div class="group-total">
-        <span>Итого${weightStr ? ' · ' + weightStr : ''}</span>
-        <span class="group-total-sum">${sumStr}</span>
-      </div>
+      ${totalRow}
       ${actions}
     </div>`;
 }
@@ -883,6 +906,72 @@ function exitGroupMode() {
   if (bar) bar.style.display = 'none';
   document.querySelectorAll('.group-selected, .group-dim').forEach(el =>
     el.classList.remove('group-selected', 'group-dim'));
+}
+
+/* ── Модалка общей доставки группы ───────────────────────────────── */
+function toggleGdRateInput() {
+  const sel = document.getElementById('gd-tariff');
+  const inp = document.getElementById('gd-tariff-rate');
+  if (inp) inp.style.display = sel?.value === 'custom' ? '' : 'none';
+}
+
+function openGroupModal(gid) {
+  const members = state.packages.filter(p => p.group_id === gid);
+  if (!members.length) return;
+  const gd = members[0].group_delivery;
+
+  document.getElementById('gd-gid').value = gid;
+  // Вес по умолчанию — сумма весов позиций
+  const sumWeight = Math.round(members.reduce((s, p) => s + (p.weight || 0), 0) * 100) / 100;
+  document.getElementById('gd-weight').value = gd?.weight || sumWeight || '';
+
+  // Тарифы страны — если у всех посылок она одна
+  const countries = [...new Set(members.map(p => p.country || 'eu'))];
+  const tariffs = countries.length === 1 ? TARIFFS[countries[0]] : null;
+  const sel = document.getElementById('gd-tariff');
+  const opts = tariffs
+    ? tariffs.map(t => `<option value="${t.name}|${t.rate}">${t.name} — ${t.label}</option>`)
+    : [];
+  opts.push('<option value="custom">✏️ Свой тариф (₽/кг)</option>');
+  sel.innerHTML = opts.join('');
+
+  const rateInp = document.getElementById('gd-tariff-rate');
+  rateInp.value = '';
+  if (gd?.tariff_rate > 0) {
+    const std = `${gd.tariff_type}|${gd.tariff_rate}`;
+    if ([...sel.options].some(o => o.value === std)) sel.value = std;
+    else { sel.value = 'custom'; rateInp.value = gd.tariff_rate; }
+  }
+  toggleGdRateInput();
+
+  document.getElementById('gd-custom-total').value = gd?.custom_total != null ? gd.custom_total : '';
+  document.getElementById('gd-remove').style.display = gd ? '' : 'none';
+  showModal('group-modal-overlay');
+}
+
+async function saveGroupDelivery(remove = false) {
+  const gid = document.getElementById('gd-gid').value;
+  const body = { group_id: gid, remove };
+  if (!remove) {
+    const tariffRaw = document.getElementById('gd-tariff').value;
+    if (tariffRaw === 'custom') {
+      const cr = parseFloat(document.getElementById('gd-tariff-rate').value);
+      if (!isNaN(cr) && cr > 0) { body.tariff_type = 'Свой'; body.tariff_rate = cr; }
+    } else if (tariffRaw && tariffRaw.includes('|')) {
+      const [t, r] = tariffRaw.split('|');
+      body.tariff_type = t; body.tariff_rate = parseFloat(r);
+    }
+    body.weight = parseFloat(document.getElementById('gd-weight').value) || 0;
+    const ct = document.getElementById('gd-custom-total').value.trim();
+    body.custom_total = ct !== '' && !isNaN(parseFloat(ct)) ? parseFloat(ct) : null;
+  }
+  try {
+    await apiFetch('/api/packages/group-delivery', { method: 'POST', body: JSON.stringify(body) });
+    toast(remove ? 'Общая доставка убрана' : 'Общая доставка сохранена', 'success');
+    haptic('medium');
+    hideModal('group-modal-overlay');
+    loadPackages();
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 /* ── Client filter (admin) ───────────────────────────────────────── */
@@ -1932,6 +2021,7 @@ document.addEventListener('click', async e => {
   if (e.target.closest('#client-modal-close') || e.target.id === 'client-modal-overlay') { hideModal('client-modal-overlay'); return; }
   if (e.target.closest('#invoice-modal-close') || e.target.id === 'invoice-modal-overlay') { hideModal('invoice-modal-overlay'); return; }
   if (e.target.closest('#delivery-modal-close') || e.target.id === 'delivery-modal-overlay') { hideModal('delivery-modal-overlay'); return; }
+  if (e.target.closest('#group-modal-close') || e.target.id === 'group-modal-overlay')       { hideModal('group-modal-overlay'); return; }
 
   const reqDelivery = e.target.closest('.btn-req-delivery');
   if (reqDelivery) {
@@ -1995,19 +2085,32 @@ document.addEventListener('click', async e => {
     const members = state.packages.filter(x => x.group_id === groupInvBtn.dataset.gid);
     if (members.length) {
       const first = members[0];
-      let sumRub = 0, sumGbp = 0;
-      members.forEach(p => { const t = pkgTotal(p); if (t > 0) { p.country === 'gb' ? sumGbp += t : sumRub += t; } });
-      const useGbp = sumGbp > 0 && sumRub === 0;
+      const gd = first.group_delivery;
+      let amount, currency = 'RUB';
+      if (gd) {
+        // Общая доставка задана — счёт на её сумму
+        amount = groupDeliveryTotal(gd) || '';
+      } else {
+        let sumRub = 0, sumGbp = 0;
+        members.forEach(p => { const t = pkgTotal(p); if (t > 0) { p.country === 'gb' ? sumGbp += t : sumRub += t; } });
+        const useGbp = sumGbp > 0 && sumRub === 0;
+        amount = (useGbp ? sumGbp : sumRub) || '';
+        currency = useGbp ? 'GBP' : 'RUB';
+      }
       openInvoiceModal({
         client: first.client_username ? '@' + first.client_username : (first.client_id || ''),
-        amount: (useGbp ? sumGbp : sumRub) || '',
-        currency: useGbp ? 'GBP' : 'RUB',
-        description: `Доставка ${members.length} посылок: ${members.map(p => p.item_name || p.tracking_number).join(', ')}`,
+        amount,
+        currency,
+        description: `Доставка ${members.length} посылок${gd?.weight > 0 ? ` (общий вес ${gd.weight} кг)` : ''}: ${members.map(p => p.item_name || p.tracking_number).join(', ')}`,
       });
       haptic('light');
     }
     return;
   }
+
+  // Общий вес и тариф группы
+  const groupDlvBtn = e.target.closest('.btn-group-delivery');
+  if (groupDlvBtn) { openGroupModal(groupDlvBtn.dataset.gid); haptic('light'); return; }
 
   // Разъединить группу
   const ungroupBtn = e.target.closest('.btn-ungroup');
@@ -2087,6 +2190,10 @@ document.getElementById('client-filter-select')?.addEventListener('change', e =>
   haptic('light');
   loadPackages();
 });
+document.getElementById('gd-tariff')?.addEventListener('change', toggleGdRateInput);
+document.getElementById('group-delivery-form')?.addEventListener('submit', e => { e.preventDefault(); saveGroupDelivery(false); });
+document.getElementById('gd-remove')?.addEventListener('click', () => saveGroupDelivery(true));
+
 document.getElementById('group-bar-cancel')?.addEventListener('click', exitGroupMode);
 document.getElementById('group-bar-apply')?.addEventListener('click', async () => {
   const ids = [...(state.groupSel?.ids || [])];

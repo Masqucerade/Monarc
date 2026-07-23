@@ -769,6 +769,16 @@ body.theme-light .inv-details-copy { background: rgba(0,0,0,0.05); border-color:
 }
 .btn-group-invoice:active { background: rgba(34,197,94,0.2); }
 
+.btn-gd-remove {
+  width: 100%; margin-top: 8px; padding: 10px;
+  border-radius: var(--radius-xs); font-size: 13px; font-weight: 500;
+  background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.18); color: #f87171;
+}
+.btn-gd-remove:active { background: rgba(239,68,68,0.15); }
+body.theme-light .btn-gd-remove {
+  background: rgba(220,38,38,0.05); border-color: rgba(220,38,38,0.2); color: #dc2626;
+}
+
 /* Режим выбора для объединения */
 .pkg-card.group-selected {
   border-color: #60a5fa;
