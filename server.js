@@ -873,17 +873,18 @@ function escHtml(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-async function notifyClientInvoice(clientId, inv) {
+async function notifyClientInvoice(clientId, inv, isUpdate = false) {
   if (!BOT_TOKEN || !clientId) return;
   const details = inv.payment_details
     ? `\n\n📋 <b>Реквизиты:</b>\n${escHtml(inv.payment_details)}`
     : '';
+  const header = isUpdate ? `✏️ <b>Счёт #${inv.id} изменён</b>` : `💰 <b>Новый счёт #${inv.id}</b>`;
   try {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: clientId,
-        text: `💰 <b>Новый счёт #${inv.id}</b>\n\n${escHtml(inv.description)}\nСумма: <b>${formatAmount(inv.amount, inv.currency)}</b>${details}\n\nОткройте приложение Monarc чтобы подтвердить оплату`,
+        text: `${header}\n\n${escHtml(inv.description)}\nСумма: <b>${formatAmount(inv.amount, inv.currency)}</b>${details}\n\nОткройте приложение Monarc чтобы подтвердить оплату`,
         parse_mode: 'HTML',
       }),
     });
@@ -951,6 +952,48 @@ app.post('/api/invoices', authMiddleware, async (req, res) => {
   const notifyId = resolveClientId(inv.client_id, inv.client_username, db);
   console.log(`[invoice] notifyId=${notifyId} → will send: ${!!notifyId}`);
   if (notifyId) await notifyClientInvoice(notifyId, inv);
+
+  res.json(inv);
+});
+
+// Admin: изменить счёт (кроме оплаченных)
+app.put('/api/invoices/:id', authMiddleware, async (req, res) => {
+  if (!req.user.is_admin) return res.status(403).json({ error: 'Admin only' });
+  const db = readDB();
+  const inv = (db.invoices || []).find(i => i.id === parseInt(req.params.id));
+  if (!inv) return res.status(404).json({ error: 'Счёт не найден' });
+  if (inv.status === 'paid') return res.status(400).json({ error: 'Оплаченный счёт нельзя изменить' });
+
+  const { client, amount, currency, description, payment_details } = req.body;
+  if (amount !== undefined) {
+    const a = parseFloat(amount);
+    if (!a || a <= 0) return res.status(400).json({ error: 'Укажите сумму' });
+    inv.amount = a;
+  }
+  if (currency) inv.currency = currency;
+  if (description !== undefined && String(description).trim()) inv.description = String(description).trim();
+  if (payment_details !== undefined) inv.payment_details = String(payment_details || '').trim() || null;
+
+  // Смена клиента — та же логика резолва, что при создании
+  if (client !== undefined && String(client).trim()) {
+    const clientRaw = String(client).trim();
+    const isNumericId = /^\d{5,}$/.test(clientRaw);
+    const clientId = isNumericId ? clientRaw : null;
+    const clientUsername = !isNumericId ? clientRaw.replace(/^@/, '').toLowerCase() : null;
+    const foundUser = (db.users || []).find(u =>
+      (clientId && u.id === clientId) ||
+      (clientUsername && (u.username || '').toLowerCase() === clientUsername)
+    );
+    inv.client_id = clientId || foundUser?.id || null;
+    inv.client_username = clientUsername || foundUser?.username || null;
+    inv.client_name = foundUser?.name || null;
+  }
+
+  inv.updated_at = now();
+  writeDB(db);
+
+  const notifyId = resolveClientId(inv.client_id, inv.client_username, db);
+  if (notifyId) await notifyClientInvoice(notifyId, inv, true);
 
   res.json(inv);
 });

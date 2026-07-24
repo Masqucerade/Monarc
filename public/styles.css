@@ -481,6 +481,13 @@ body.theme-light .inv-details-copy { background: rgba(0,0,0,0.05); border-color:
   background: rgba(255,255,255,.03); border: 1px solid var(--border); color: var(--text3);
   cursor: pointer; margin-top: 6px; float: right;
 }
+.btn-inv-edit {
+  padding: 8px 10px; border-radius: var(--radius-xs);
+  background: rgba(255,255,255,.03); border: 1px solid var(--border); color: var(--text2);
+  cursor: pointer; margin-top: 6px; float: right; margin-right: 6px;
+}
+.btn-inv-edit:active { background: rgba(255,255,255,.08); }
+body.theme-light .btn-inv-edit { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.1); color: #475569; }
 
 /* ── Payment template chips (invoice modal) ─────────────────────── */
 .tpl-chips-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }

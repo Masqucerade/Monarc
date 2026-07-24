@@ -68,6 +68,7 @@ const state = {
   sortMode: localStorage.getItem('monarc_sort') || 'created', // 'created' | 'updated' | 'status'
   groupSel: null, // режим объединения: { ids: Set, key: clientKey }
   editingId: null,
+  editingInvoiceId: null,
   calcCountry: 'eu',
   calcTariff: null,
   adminFormCountry: 'eu',
@@ -512,6 +513,12 @@ function invoiceCard(inv, isAdmin) {
     actions += `<button class="btn-inv-delete" data-id="${inv.id}" title="Удалить">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
     </button>`;
+    // Редактирование доступно, пока счёт не оплачен
+    if (inv.status !== 'paid') {
+      actions += `<button class="btn-inv-edit" data-id="${inv.id}" title="Изменить счёт">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+      </button>`;
+    }
   } else if (inv.status === 'pending') {
     actions = `<div class="inv-actions">
       <button class="btn-inv-paid" data-id="${inv.id}" style="width:100%">Отметить оплаченным</button>
@@ -635,7 +642,10 @@ function switchView(view) {
 
 /* ── Invoice Modal ───────────────────────────────────────────────── */
 async function openInvoiceModal(prefill) {
+  state.editingInvoiceId = null;
   document.getElementById('invoice-form').reset();
+  document.getElementById('invoice-modal-title').textContent = 'Выставить счёт';
+  document.getElementById('invoice-form-submit').textContent = 'Выставить счёт';
   showModal('invoice-modal-overlay');
   loadClientTemplates();
   await loadPaymentTemplates();
@@ -648,27 +658,49 @@ async function openInvoiceModal(prefill) {
   }
 }
 
+// Редактирование существующего счёта — та же модалка
+async function openInvoiceEdit(inv) {
+  state.editingInvoiceId = inv.id;
+  document.getElementById('invoice-form').reset();
+  document.getElementById('invoice-modal-title').textContent = `Изменить счёт #${inv.id}`;
+  document.getElementById('invoice-form-submit').textContent = 'Сохранить';
+  showModal('invoice-modal-overlay');
+  loadClientTemplates();
+  await loadPaymentTemplates();
+  document.getElementById('inv-client').value = inv.client_username ? '@' + inv.client_username : (inv.client_id || '');
+  document.getElementById('inv-amount').value = inv.amount;
+  document.getElementById('inv-currency').value = inv.currency || 'RUB';
+  document.getElementById('inv-description').value = inv.description || '';
+  document.getElementById('inv-details').value = inv.payment_details || '';
+}
+
 async function handleInvoiceFormSubmit(e) {
   e.preventDefault();
   const btn = document.getElementById('invoice-form-submit');
-  btn.disabled = true; btn.textContent = 'Отправляем…';
+  const editing = state.editingInvoiceId;
+  btn.disabled = true; btn.textContent = editing ? 'Сохраняем…' : 'Отправляем…';
   try {
-    await apiFetch('/api/invoices', {
-      method: 'POST',
-      body: JSON.stringify({
-        client:          document.getElementById('inv-client').value.trim() || undefined,
-        amount:          parseFloat(document.getElementById('inv-amount').value),
-        currency:        document.getElementById('inv-currency').value,
-        description:     document.getElementById('inv-description').value.trim(),
-        payment_details: document.getElementById('inv-details').value.trim() || undefined,
-      }),
-    });
-    toast('Счёт выставлен', 'success');
+    const body = {
+      client:          document.getElementById('inv-client').value.trim() || undefined,
+      amount:          parseFloat(document.getElementById('inv-amount').value),
+      currency:        document.getElementById('inv-currency').value,
+      description:     document.getElementById('inv-description').value.trim(),
+      payment_details: document.getElementById('inv-details').value.trim() || '',
+    };
+    if (editing) {
+      await apiFetch(`/api/invoices/${editing}`, { method: 'PUT', body: JSON.stringify(body) });
+      toast('Счёт обновлён', 'success');
+    } else {
+      if (!body.payment_details) delete body.payment_details;
+      await apiFetch('/api/invoices', { method: 'POST', body: JSON.stringify(body) });
+      toast('Счёт выставлен', 'success');
+    }
     haptic('medium');
+    state.editingInvoiceId = null;
     hideModal('invoice-modal-overlay');
     loadInvoices();
   } catch (err) { toast(err.message, 'error'); }
-  finally { btn.disabled = false; btn.textContent = 'Выставить счёт'; }
+  finally { btn.disabled = false; btn.textContent = editing ? 'Сохранить' : 'Выставить счёт'; }
 }
 
 /* ── Skeleton cards ──────────────────────────────────────────────── */
@@ -1970,6 +2002,13 @@ document.addEventListener('click', async e => {
       await apiFetch(`/api/invoices/${parseInt(invCancelBtn.dataset.id)}/cancel`, { method: 'POST' });
       toast('Счёт отменён', 'success'); loadInvoices();
     } catch (err) { toast(err.message, 'error'); }
+    return;
+  }
+
+  const invEditBtn = e.target.closest('.btn-inv-edit');
+  if (invEditBtn) {
+    const inv = state.invoices.find(i => i.id === parseInt(invEditBtn.dataset.id));
+    if (inv) { openInvoiceEdit(inv); haptic('light'); }
     return;
   }
 
