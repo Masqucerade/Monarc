@@ -1870,6 +1870,11 @@ body.theme-light .i-stat-sep { background: rgba(0,0,0,0.08); }
   filter: drop-shadow(0 4px 24px rgba(255,255,255,0.15));
   animation: obIconFloat 3s ease-in-out infinite;
 }
+.ob-logo-img {
+  width: 96px; height: auto; display: block;
+  filter: invert(1) drop-shadow(0 4px 24px rgba(255,255,255,0.15));
+}
+body.theme-light .ob-logo-img { filter: drop-shadow(0 4px 24px rgba(0,0,0,0.12)); }
 @keyframes obIconFloat {
   0%,100% { transform: translateY(0); }
   50%     { transform: translateY(-8px); }
