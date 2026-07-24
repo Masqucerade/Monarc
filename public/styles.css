@@ -1095,6 +1095,13 @@ body.theme-light .client-filter select option { background: #ffffff; color: #0f1
   background: var(--purple); border-radius: 50%;
   filter: blur(50px); opacity: 0.2; pointer-events: none;
 }
+.i-hero-img {
+  display: block; width: 116px; height: auto;
+  margin: 0 auto 4px; position: relative; z-index: 1;
+  filter: invert(1); /* ч/б логотип: в тёмной теме линии белые */
+  opacity: 0.95;
+}
+body.theme-light .i-hero-img { filter: none; }
 .i-hero-logo {
   font-family: 'Montserrat', sans-serif; font-size: 40px; font-weight: 900; letter-spacing: 8px;
   background: linear-gradient(135deg, #ffffff 30%, #94a3b8);
